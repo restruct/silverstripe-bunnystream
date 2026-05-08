@@ -133,14 +133,18 @@ class BunnyStreamClient
     /**
      * Get the embed/player URL for a video.
      */
+    /**
+     * Get the embed/player URL for a video.
+     * Always uses iframe.mediadelivery.net (CDN hostname is for direct file delivery only).
+     */
     public function getEmbedUrl(string $videoId): string
     {
-        $host = $this->cdnHostname ?: "iframe.mediadelivery.net";
-        return "https://{$host}/embed/{$this->libraryId}/{$videoId}";
+        return "https://iframe.mediadelivery.net/embed/{$this->libraryId}/{$videoId}";
     }
 
     /**
      * Get the thumbnail URL for a video.
+     * Uses CDN hostname if configured, otherwise default Bunny CDN pattern.
      */
     public function getThumbnailUrl(string $videoId): string
     {
