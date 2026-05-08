@@ -17,11 +17,11 @@ use SilverStripe\ORM\FieldType\DBHTMLText;
  */
 class BunnyVideo extends DataObject
 {
-    private static string $table_name = 'BunnyVideo';
-    private static string $singular_name = 'Video';
-    private static string $plural_name = 'Video\'s';
+    private static $table_name = 'BunnyVideo';
+    private static $singular_name = 'Video';
+    private static $plural_name = 'Video\'s';
 
-    private static array $db = [
+    private static $db = [
         'VideoGuid' => 'Varchar(100)', # Bunny video GUID
         'Title' => 'Varchar(255)',
         'Status' => 'Int',             # Bunny status code (0-6)
@@ -32,11 +32,11 @@ class BunnyVideo extends DataObject
         'StorageSize' => 'Int',        # Bytes
     ];
 
-    private static array $has_one = [
+    private static $has_one = [
         'PosterImage' => Image::class,
     ];
 
-    private static array $summary_fields = [
+    private static $summary_fields = [
         'Title' => 'Titel',
         'VideoGuid' => 'GUID',
         'StatusLabel' => 'Status',
