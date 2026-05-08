@@ -25,12 +25,14 @@ class BunnyStreamClient
 
     protected string $apiKey;
     protected int $libraryId;
+    protected string $cdnHostname;
     protected Client $client;
 
-    public function __construct(?string $apiKey = null, ?int $libraryId = null)
+    public function __construct(?string $apiKey = null, ?int $libraryId = null, ?string $cdnHostname = null)
     {
         $this->apiKey = $apiKey ?: Environment::getEnv('BUNNY_STREAM_API_KEY') ?: '';
         $this->libraryId = $libraryId ?: (int) (Environment::getEnv('BUNNY_STREAM_LIBRARY_ID') ?: 0);
+        $this->cdnHostname = $cdnHostname ?: Environment::getEnv('BUNNY_STREAM_CDN_HOSTNAME') ?: '';
         $this->client = new Client(['timeout' => 30]);
     }
 
@@ -133,7 +135,8 @@ class BunnyStreamClient
      */
     public function getEmbedUrl(string $videoId): string
     {
-        return "https://iframe.mediadelivery.net/embed/{$this->libraryId}/{$videoId}";
+        $host = $this->cdnHostname ?: "iframe.mediadelivery.net";
+        return "https://{$host}/embed/{$this->libraryId}/{$videoId}";
     }
 
     /**
@@ -141,7 +144,8 @@ class BunnyStreamClient
      */
     public function getThumbnailUrl(string $videoId): string
     {
-        return "https://vz-{$this->libraryId}.b-cdn.net/{$videoId}/thumbnail.jpg";
+        $host = $this->cdnHostname ?: "vz-{$this->libraryId}.b-cdn.net";
+        return "https://{$host}/{$videoId}/thumbnail.jpg";
     }
 
     /**

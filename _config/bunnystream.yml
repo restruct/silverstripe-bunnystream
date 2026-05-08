@@ -5,3 +5,4 @@ Name: bunnystream
 # Env vars required:
 # BUNNY_STREAM_API_KEY: Your Bunny Stream library API key
 # BUNNY_STREAM_LIBRARY_ID: Your Bunny Stream library ID
+# BUNNY_STREAM_CDN_HOSTNAME: Optional custom CDN hostname (default: iframe.mediadelivery.net)
