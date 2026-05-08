@@ -1,0 +1,23 @@
+{
+    "name": "restruct/silverstripe-bunnystream",
+    "description": "Bunny Stream video integration for SilverStripe — upload, manage, and embed videos",
+    "type": "silverstripe-vendormodule",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Restruct",
+            "email": "dev@restruct.nl",
+            "homepage": "https://restruct.nl"
+        }
+    ],
+    "require": {
+        "silverstripe/framework": "^5",
+        "silverstripe/assets": "^2.0",
+        "guzzlehttp/guzzle": "^7.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "Restruct\\BunnyStream\\": "src/"
+        }
+    }
+}
