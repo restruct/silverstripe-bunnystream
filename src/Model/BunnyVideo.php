@@ -88,6 +88,15 @@ class BunnyVideo extends DataObject
     }
 
     /**
+     * Get the thumbnail/poster URL.
+     */
+    public function getThumbnailUrl(): string
+    {
+        $client = new BunnyStreamClient();
+        return $client->getThumbnailUrl($this->VideoGuid);
+    }
+
+    /**
      * Get responsive player iframe HTML.
      */
     public function getPlayerIframeHTML(array $options = []): string

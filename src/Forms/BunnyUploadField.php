@@ -75,14 +75,31 @@ class BunnyUploadField extends FormField
         $value = $this->Value();
         $createUrl = $this->Link('createUpload');
 
-        # Show existing video info if set
-        $existingInfo = '';
+        # Show existing video info with poster thumbnail
+        $existingVideoHtml = '';
         if ($value) {
             $BunnyVideo = BunnyVideo::get()->byID($value);
             if ($BunnyVideo && $BunnyVideo->exists()) {
-                $existingInfo = '<div class="mb-2 text-muted"><small>Huidige video: '
-                    . htmlspecialchars($BunnyVideo->Title)
-                    . ' (' . $BunnyVideo->getStatusLabel() . ')</small></div>';
+                $title = htmlspecialchars($BunnyVideo->Title);
+                $status = $BunnyVideo->getStatusLabel();
+                $duration = $BunnyVideo->getDurationFormatted();
+                $posterUrl = $BunnyVideo->VideoGuid ? htmlspecialchars($BunnyVideo->getThumbnailUrl()) : '';
+                $statusClass = $BunnyVideo->isReady() ? 'text-success' : 'text-warning';
+
+                $posterHtml = $posterUrl
+                    ? '<img src="' . $posterUrl . '" alt="" style="max-width:160px; max-height:90px; border-radius:4px; object-fit:cover;" class="me-3" onerror="this.style.display=\'none\'">'
+                    : '';
+
+                $existingVideoHtml = <<<EXISTING
+    <div class="d-flex align-items-center mb-3 p-2 border rounded" style="background:#f8f9fa;">
+        {$posterHtml}
+        <div>
+            <div class="fw-semibold">{$title}</div>
+            <small class="{$statusClass}">{$status}</small>
+            <small class="text-muted ms-2">{$duration}</small>
+        </div>
+    </div>
+EXISTING;
             }
         }
 
@@ -92,19 +109,19 @@ class BunnyUploadField extends FormField
         $html = <<<HTML
 <div id="{$fieldId}_wrapper" class="bunny-upload-field">
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
-    {$existingInfo}
+    {$existingVideoHtml}
 
     <div class="bunny-upload-controls">
         <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" style="max-width:400px; display:inline-block;" />
-        <button type="button" id="{$fieldId}_btn" class="btn btn-primary btn-sm ms-2" disabled>Upload naar Bunny</button>
-        <span id="{$fieldId}_status" class="ms-2 text-muted"></span>
+        <button type="button" id="{$fieldId}_btn" class="btn btn-outline-primary btn-sm ms-2" disabled>Video uploaden</button>
+        <span id="{$fieldId}_status" class="ms-2 text-muted small"></span>
     </div>
 
-    <div id="{$fieldId}_progress" class="progress mt-2" style="display:none; max-width:400px;">
-        <div class="progress-bar" role="progressbar" style="width: 0%">0%</div>
+    <div id="{$fieldId}_progress" class="progress mt-2" style="display:none; max-width:400px; height:8px;">
+        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
     </div>
 
-    <div id="{$fieldId}_result" class="mt-2 text-success" style="display:none;"></div>
+    <div id="{$fieldId}_result" class="mt-2 text-success small" style="display:none;"></div>
 </div>
 
 <script>
@@ -131,7 +148,7 @@ class BunnyUploadField extends FormField
 
         uploadBtn.disabled = true;
         fileInput.disabled = true;
-        statusEl.textContent = 'Video aanmaken op Bunny...';
+        statusEl.textContent = 'Voorbereiden...';
         progressEl.style.display = 'block';
 
         // Step 1: Create video + get TUS credentials from our server
@@ -172,7 +189,7 @@ class BunnyUploadField extends FormField
                     progressBar.textContent = '100%';
                     progressBar.classList.add('bg-success');
                     statusEl.textContent = '';
-                    resultEl.textContent = 'Video geüpload — wordt verwerkt door Bunny';
+                    resultEl.textContent = 'Video geüpload — wordt verwerkt';
                     resultEl.style.display = 'block';
                 }
             });
