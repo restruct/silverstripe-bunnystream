@@ -142,7 +142,8 @@ class BunnyVideo extends DataObject
 
         $url = $this->getPlayerURL();
         $params = [];
-        if ($options['autoplay'] ?? false) $params[] = 'autoplay=true';
+        # Always emit autoplay explicitly — defaults to false to override any library-level autoplay setting.
+        $params[] = 'autoplay=' . (($options['autoplay'] ?? false) ? 'true' : 'false');
         if ($options['muted'] ?? false) $params[] = 'muted=true';
         if ($options['loop'] ?? false) $params[] = 'loop=true';
         if (!($options['controls'] ?? true)) $params[] = 'controls=false';
