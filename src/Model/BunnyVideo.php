@@ -231,6 +231,18 @@ class BunnyVideo extends DataObject
 
     public function getCMSFields()
     {
+        # Auto-sync metadata from Bunny when video isn't yet finished processing.
+        # Bunny processes async (created → uploaded → processing → transcoding → finished),
+        # so admin will see "Onbekend"/0 right after upload — refresh on every CMS open
+        # until the video reaches a terminal state.
+        if ($this->VideoGuid && !$this->isReady() && $this->Status !== BunnyStreamClient::STATUS_ERROR && $this->Status !== BunnyStreamClient::STATUS_UPLOAD_FAILED) {
+            try {
+                $this->refreshFromApi();
+            } catch (\Throwable $e) {
+                # API may be unreachable — don't break the CMS, just show stale data
+            }
+        }
+
         $fields = parent::getCMSFields();
 
         # Remove default scaffolded fields — we'll rebuild the form
