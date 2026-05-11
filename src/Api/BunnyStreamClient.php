@@ -26,13 +26,15 @@ class BunnyStreamClient
     protected string $apiKey;
     protected int $libraryId;
     protected string $cdnHostname;
+    protected string $tokenAuthKey;
     protected Client $client;
 
-    public function __construct(?string $apiKey = null, ?int $libraryId = null, ?string $cdnHostname = null)
+    public function __construct(?string $apiKey = null, ?int $libraryId = null, ?string $cdnHostname = null, ?string $tokenAuthKey = null)
     {
         $this->apiKey = $apiKey ?: Environment::getEnv('BUNNY_STREAM_API_KEY') ?: '';
         $this->libraryId = $libraryId ?: (int) (Environment::getEnv('BUNNY_STREAM_LIBRARY_ID') ?: 0);
         $this->cdnHostname = $cdnHostname ?: Environment::getEnv('BUNNY_STREAM_CDN_HOSTNAME') ?: '';
+        $this->tokenAuthKey = $tokenAuthKey ?: Environment::getEnv('BUNNY_STREAM_TOKEN_AUTH_KEY') ?: '';
         $this->client = new Client(['timeout' => 30]);
     }
 
@@ -132,14 +134,31 @@ class BunnyStreamClient
 
     /**
      * Get the embed/player URL for a video.
-     */
-    /**
-     * Get the embed/player URL for a video.
      * Always uses iframe.mediadelivery.net (CDN hostname is for direct file delivery only).
+     *
+     * When a token auth key is configured (BUNNY_STREAM_TOKEN_AUTH_KEY env var) and the
+     * library has "Token Authentication" enabled in Bunny's dashboard, the returned URL
+     * includes a signed token + expiry. Without these, anyone with the embed URL could
+     * play the video — with them, the URL is only valid for a limited window.
+     *
+     * @param string $videoId
+     * @param int $expiresInSeconds How long the signed URL is valid (default: 4 hours)
+     * @return string
      */
-    public function getEmbedUrl(string $videoId): string
+    public function getEmbedUrl(string $videoId, int $expiresInSeconds = 14400): string
     {
-        return "https://iframe.mediadelivery.net/embed/{$this->libraryId}/{$videoId}";
+        $base = "https://iframe.mediadelivery.net/embed/{$this->libraryId}/{$videoId}";
+
+        if (!$this->tokenAuthKey) {
+            return $base;
+        }
+
+        # Signed embed: SHA256(token_auth_key + video_id + expires_unix_timestamp), hex encoded
+        # https://docs.bunny.net/docs/stream-embed-token-authentication
+        $expires = time() + $expiresInSeconds;
+        $token = hash('sha256', $this->tokenAuthKey . $videoId . $expires);
+
+        return $base . "?token={$token}&expires={$expires}";
     }
 
     /**

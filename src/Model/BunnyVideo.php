@@ -148,7 +148,8 @@ class BunnyVideo extends DataObject
         if (!($options['controls'] ?? true)) $params[] = 'controls=false';
 
         if ($params) {
-            $url .= '?' . implode('&', $params);
+            # If URL already has query params (signed token), append with &, otherwise ?
+            $url .= (str_contains($url, '?') ? '&' : '?') . implode('&', $params);
         }
 
         $safeUrl = htmlspecialchars($url);

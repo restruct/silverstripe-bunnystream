@@ -6,3 +6,7 @@ Name: bunnystream
 # BUNNY_STREAM_API_KEY: Your Bunny Stream library API key
 # BUNNY_STREAM_LIBRARY_ID: Your Bunny Stream library ID
 # BUNNY_STREAM_CDN_HOSTNAME: Optional custom CDN hostname (default: iframe.mediadelivery.net)
+# BUNNY_STREAM_TOKEN_AUTH_KEY: Optional library "Token Authentication Key" — when set
+#                              AND the library has token authentication enabled in Bunny's
+#                              dashboard, embed URLs are signed with SHA256(key + videoId
+#                              + expires) and valid for a limited time window (default 4h).
