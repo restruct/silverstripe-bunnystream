@@ -111,13 +111,14 @@ EXISTING;
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
-    <!-- SS CMS bundles Bootstrap 4: use custom-file for the styled "Choose file" button + filename label,
-         paired with input-group-append for the upload action. -->
+    <!-- BS4 input-group: 'Bestand kiezen' label triggers the hidden file picker on the left,
+         a readonly text field shows the picked filename, and the 'Video uploaden' button sits on the right. -->
     <div class="input-group bunny-upload-controls" style="max-width:560px;">
-        <div class="custom-file">
-            <input type="file" id="{$fieldId}_file" accept="video/*" class="custom-file-input" aria-describedby="{$fieldId}_btn" />
-            <label class="custom-file-label" for="{$fieldId}_file" data-browse="Bestand kiezen">Geen video gekozen</label>
+        <div class="input-group-prepend">
+            <label for="{$fieldId}_file" class="btn btn-outline-secondary mb-0" style="cursor:pointer;">Bestand kiezen</label>
         </div>
+        <input type="text" id="{$fieldId}_file_display" class="form-control" readonly placeholder="Geen video gekozen" />
+        <input type="file" id="{$fieldId}_file" accept="video/*" class="d-none" />
         <div class="input-group-append">
             <button type="button" id="{$fieldId}_btn" class="btn btn-outline-secondary" disabled>Video uploaden</button>
         </div>
@@ -144,12 +145,11 @@ EXISTING;
     var resultEl = document.getElementById(fieldId + '_result');
     var hiddenInput = document.getElementById(fieldId);
 
-    // BS4 custom-file doesn't auto-update its label — set it manually on change
-    var fileLabel = document.querySelector('label.custom-file-label[for="' + fieldId + '_file"]');
+    // Mirror the picked filename into the readonly display input
+    var fileDisplay = document.getElementById(fieldId + '_file_display');
     fileInput.addEventListener('change', function() {
         uploadBtn.disabled = !fileInput.files.length;
-        var name = fileInput.files.length ? fileInput.files[0].name : 'Geen video gekozen';
-        if (fileLabel) fileLabel.textContent = name;
+        if (fileDisplay) fileDisplay.value = fileInput.files.length ? fileInput.files[0].name : '';
     });
 
     uploadBtn.addEventListener('click', function() {
