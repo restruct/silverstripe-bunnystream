@@ -111,13 +111,13 @@ EXISTING;
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
-    <div class="bunny-upload-controls">
-        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" style="max-width:400px; display:inline-block;" />
-        <button type="button" id="{$fieldId}_btn" class="btn btn-outline-primary btn-sm ms-2" disabled>Video uploaden</button>
-        <span id="{$fieldId}_status" class="ms-2 text-muted small"></span>
+    <div class="input-group bunny-upload-controls" style="max-width:560px;">
+        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" />
+        <button type="button" id="{$fieldId}_btn" class="btn btn-outline-primary" disabled>Video uploaden</button>
     </div>
+    <div id="{$fieldId}_status" class="text-muted small mt-1"></div>
 
-    <div id="{$fieldId}_progress" class="progress mt-2" style="display:none; max-width:400px; height:8px;">
+    <div id="{$fieldId}_progress" class="progress mt-2" style="display:none; max-width:560px; height:8px;">
         <div class="progress-bar" role="progressbar" style="width: 0%"></div>
     </div>
 
