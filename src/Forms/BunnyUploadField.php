@@ -158,7 +158,8 @@ EXISTING;
     if (removeBtn) {
         removeBtn.addEventListener('click', function() {
             hiddenInput.value = '';
-            if (previewWrap) previewWrap.style.display = 'none';
+            // Preview uses .d-flex (display:flex !important) — toggle .d-none to override it
+            if (previewWrap) previewWrap.classList.add('d-none');
             if (uploadWrap) uploadWrap.style.display = 'block';
         });
     }
