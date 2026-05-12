@@ -111,6 +111,13 @@ EXISTING;
         # Initial display state: if a video is attached, hide the upload UI behind the preview
         $uploadDisplay = $hasVideo ? 'none' : 'block';
 
+        # Pull the field's own description into the upload block so it sits with the inputs
+        # (and disappears together when a video is attached). Blank the FormField-level description
+        # so the SS wrapping template doesn't render it a second time below.
+        $descriptionText = (string) $this->getDescription();
+        $descriptionHtml = $descriptionText !== '' ? '<div class="form__field-description small text-muted mt-1">' . $descriptionText . '</div>' : '';
+        $this->setDescription('');
+
         # Include tus-js-client from CDN
         Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
 
@@ -134,6 +141,7 @@ EXISTING;
         </div>
 
         <div id="{$fieldId}_result" class="mt-2 text-success small" style="display:none;"></div>
+        {$descriptionHtml}
     </div>
 </div>
 
@@ -158,8 +166,8 @@ EXISTING;
     if (removeBtn) {
         removeBtn.addEventListener('click', function() {
             hiddenInput.value = '';
-            // Preview uses .d-flex (display:flex !important) — toggle .d-none to override it
-            if (previewWrap) previewWrap.classList.add('d-none');
+            // d-flex applies display:flex !important — use setProperty with priority to override
+            if (previewWrap) previewWrap.style.setProperty('display', 'none', 'important');
             if (uploadWrap) uploadWrap.style.display = 'block';
         });
     }
