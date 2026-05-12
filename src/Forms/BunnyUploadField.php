@@ -75,11 +75,13 @@ class BunnyUploadField extends FormField
         $value = $this->Value();
         $createUrl = $this->Link('createUpload');
 
-        # Show existing video info with poster thumbnail
+        # Show existing video info with poster thumbnail + a remove button to clear the relation
         $existingVideoHtml = '';
+        $hasVideo = false;
         if ($value) {
             $BunnyVideo = BunnyVideo::get()->byID($value);
             if ($BunnyVideo && $BunnyVideo->exists()) {
+                $hasVideo = true;
                 $title = htmlspecialchars($BunnyVideo->Title);
                 $status = $BunnyVideo->getStatusLabel();
                 $duration = $BunnyVideo->getDurationFormatted();
@@ -91,17 +93,23 @@ class BunnyUploadField extends FormField
                     : '';
 
                 $existingVideoHtml = <<<EXISTING
-    <div class="d-flex align-items-center mb-3 p-2 border rounded" style="background:#f8f9fa;">
+    <div id="{$fieldId}_preview" class="d-flex align-items-center mb-3 p-2 border rounded" style="background:#f8f9fa;">
         {$posterHtml}
-        <div>
+        <div class="flex-grow-1">
             <div class="fw-semibold">{$title}</div>
             <small class="{$statusClass}">{$status}</small>
             <small class="text-muted ms-2">{$duration}</small>
         </div>
+        <button type="button" id="{$fieldId}_remove" class="btn btn-sm btn-outline-danger ms-2" title="Video ontkoppelen — andere vragen die naar deze video verwijzen blijven werken">
+            <i class="font-icon-cancel"></i> Ontkoppelen
+        </button>
     </div>
 EXISTING;
             }
         }
+
+        # Initial display state: if a video is attached, hide the upload UI behind the preview
+        $uploadDisplay = $hasVideo ? 'none' : 'block';
 
         # Include tus-js-client from CDN
         Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
@@ -111,20 +119,22 @@ EXISTING;
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
-    <div class="input-group bunny-upload-controls" style="max-width:560px;">
-        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" aria-describedby="{$fieldId}_btn" style="padding:.35rem;" />
-        <!-- SS CMS bundles Bootstrap 4: input-group children need the input-group-append wrapper to flush -->
-        <div class="input-group-append">
-            <button type="button" id="{$fieldId}_btn" class="btn btn-outline-info" disabled>Video uploaden</button>
+    <div id="{$fieldId}_upload" style="display:{$uploadDisplay};">
+        <div class="input-group bunny-upload-controls" style="max-width:560px;">
+            <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" aria-describedby="{$fieldId}_btn" style="padding:.35rem;" />
+            <!-- SS CMS bundles Bootstrap 4: input-group children need the input-group-append wrapper to flush -->
+            <div class="input-group-append">
+                <button type="button" id="{$fieldId}_btn" class="btn btn-outline-info" disabled>Video uploaden</button>
+            </div>
         </div>
-    </div>
-    <div id="{$fieldId}_status" class="text-muted small mt-1"></div>
+        <div id="{$fieldId}_status" class="text-muted small mt-1"></div>
 
-    <div id="{$fieldId}_progress" class="progress mt-2" style="display:none; max-width:560px; height:8px;">
-        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-    </div>
+        <div id="{$fieldId}_progress" class="progress mt-2" style="display:none; max-width:560px; height:8px;">
+            <div class="progress-bar" role="progressbar" style="width: 0%"></div>
+        </div>
 
-    <div id="{$fieldId}_result" class="mt-2 text-success small" style="display:none;"></div>
+        <div id="{$fieldId}_result" class="mt-2 text-success small" style="display:none;"></div>
+    </div>
 </div>
 
 <script>
@@ -139,6 +149,19 @@ EXISTING;
     var progressBar = progressEl.querySelector('.progress-bar');
     var resultEl = document.getElementById(fieldId + '_result');
     var hiddenInput = document.getElementById(fieldId);
+    var uploadWrap = document.getElementById(fieldId + '_upload');
+    var previewWrap = document.getElementById(fieldId + '_preview');
+    var removeBtn = document.getElementById(fieldId + '_remove');
+
+    // Ontkoppelen: clear the relation client-side so on save the has_one is cleared.
+    // The BunnyVideo record stays in the library (other questions may reference it).
+    if (removeBtn) {
+        removeBtn.addEventListener('click', function() {
+            hiddenInput.value = '';
+            if (previewWrap) previewWrap.style.display = 'none';
+            if (uploadWrap) uploadWrap.style.display = 'block';
+        });
+    }
 
     fileInput.addEventListener('change', function() {
         uploadBtn.disabled = !fileInput.files.length;
@@ -192,8 +215,12 @@ EXISTING;
                     progressBar.textContent = '100%';
                     progressBar.classList.add('bg-success');
                     statusEl.textContent = '';
-                    resultEl.textContent = 'Video geüpload — wordt verwerkt';
+                    resultEl.textContent = 'Video geüpload — sla deze vraag op om de koppeling te bevestigen';
                     resultEl.style.display = 'block';
+                    // Lock the upload UI so another file can't be picked while a video is pending.
+                    // To swap videos, save first, then use the Ontkoppelen button on reload.
+                    fileInput.disabled = true;
+                    uploadBtn.disabled = true;
                 }
             });
 
