@@ -88,19 +88,21 @@ class BunnyUploadField extends FormField
                 $posterUrl = $BunnyVideo->VideoGuid ? htmlspecialchars($BunnyVideo->getThumbnailUrl()) : '';
                 $statusClass = $BunnyVideo->isReady() ? 'text-success' : 'text-warning';
 
+                # Hybrid BS4/5 classes (mr-/me-, ml-/ms-, font-weight-bold/fw-semibold) so this
+                # module renders correctly on both SS5 (BS4) and SS6 (BS5) without changes.
                 $posterHtml = $posterUrl
-                    ? '<img src="' . $posterUrl . '" alt="" style="max-width:160px; max-height:90px; border-radius:4px; object-fit:cover;" class="me-3" onerror="this.style.display=\'none\'">'
+                    ? '<img src="' . $posterUrl . '" alt="" style="max-width:160px; max-height:90px; border-radius:4px; object-fit:cover;" class="me-3 mr-3" onerror="this.style.display=\'none\'">'
                     : '';
 
                 $existingVideoHtml = <<<EXISTING
-    <div id="{$fieldId}_preview" class="d-flex align-items-center mb-3 p-2 border rounded" style="background:#f8f9fa;">
+    <div id="{$fieldId}_preview" class="d-flex align-items-center p-2 border rounded" style="background:#f8f9fa;">
         {$posterHtml}
         <div class="flex-grow-1">
-            <div class="fw-semibold">{$title}</div>
+            <div class="fw-semibold font-weight-bold">{$title}</div>
             <small class="{$statusClass}">{$status}</small>
-            <small class="text-muted ms-2">{$duration}</small>
+            <small class="text-muted ms-2 ml-2">{$duration}</small>
         </div>
-        <button type="button" id="{$fieldId}_remove" class="btn btn-sm btn-outline-danger ms-2" title="Video ontkoppelen — andere vragen die naar deze video verwijzen blijven werken">
+        <button type="button" id="{$fieldId}_remove" class="btn btn-sm btn-outline-danger ms-2 ml-2" title="Video ontkoppelen — andere vragen die naar deze video verwijzen blijven werken">
             <i class="font-icon-cancel"></i> Ontkoppelen
         </button>
     </div>
