@@ -111,14 +111,9 @@ EXISTING;
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
-    <!-- Hidden file input lives outside the input-group so BS4's flex-flow / sibling rules
-         aren't disturbed. The label inside the prepend triggers it via for="..." -->
-    <input type="file" id="{$fieldId}_file" accept="video/*" class="d-none" />
     <div class="input-group bunny-upload-controls" style="max-width:560px;">
-        <div class="input-group-prepend">
-            <label for="{$fieldId}_file" class="btn btn-outline-secondary mb-0" style="cursor:pointer;">Bestand kiezen</label>
-        </div>
-        <input type="text" id="{$fieldId}_file_display" class="form-control" readonly placeholder="Geen video gekozen" />
+        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" aria-describedby="{$fieldId}_btn" />
+        <!-- SS CMS bundles Bootstrap 4: input-group children need the input-group-append wrapper to flush -->
         <div class="input-group-append">
             <button type="button" id="{$fieldId}_btn" class="btn btn-outline-secondary" disabled>Video uploaden</button>
         </div>
@@ -145,11 +140,9 @@ EXISTING;
     var resultEl = document.getElementById(fieldId + '_result');
     var hiddenInput = document.getElementById(fieldId);
 
-    // Mirror the picked filename into the readonly display input
-    var fileDisplay = document.getElementById(fieldId + '_file_display');
     fileInput.addEventListener('change', function() {
         uploadBtn.disabled = !fileInput.files.length;
-        if (fileDisplay) fileDisplay.value = fileInput.files.length ? fileInput.files[0].name : '';
+        statusEl.textContent = fileInput.files.length ? fileInput.files[0].name : '';
     });
 
     uploadBtn.addEventListener('click', function() {
