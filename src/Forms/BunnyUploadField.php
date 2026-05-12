@@ -111,9 +111,13 @@ EXISTING;
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
+    <!-- SS CMS bundles Bootstrap 4: use custom-file for the styled "Choose file" button + filename label,
+         paired with input-group-append for the upload action. -->
     <div class="input-group bunny-upload-controls" style="max-width:560px;">
-        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" aria-describedby="{$fieldId}_btn" />
-        <!-- SS CMS bundles Bootstrap 4: input-group children need the input-group-append wrapper to flush -->
+        <div class="custom-file">
+            <input type="file" id="{$fieldId}_file" accept="video/*" class="custom-file-input" aria-describedby="{$fieldId}_btn" />
+            <label class="custom-file-label" for="{$fieldId}_file" data-browse="Bestand kiezen">Geen video gekozen</label>
+        </div>
         <div class="input-group-append">
             <button type="button" id="{$fieldId}_btn" class="btn btn-outline-secondary" disabled>Video uploaden</button>
         </div>
@@ -140,9 +144,12 @@ EXISTING;
     var resultEl = document.getElementById(fieldId + '_result');
     var hiddenInput = document.getElementById(fieldId);
 
+    // BS4 custom-file doesn't auto-update its label — set it manually on change
+    var fileLabel = document.querySelector('label.custom-file-label[for="' + fieldId + '_file"]');
     fileInput.addEventListener('change', function() {
         uploadBtn.disabled = !fileInput.files.length;
-        statusEl.textContent = fileInput.files.length ? fileInput.files[0].name : '';
+        var name = fileInput.files.length ? fileInput.files[0].name : 'Geen video gekozen';
+        if (fileLabel) fileLabel.textContent = name;
     });
 
     uploadBtn.addEventListener('click', function() {
