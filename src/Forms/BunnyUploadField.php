@@ -111,14 +111,14 @@ EXISTING;
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
-    <!-- BS4 input-group: 'Bestand kiezen' label triggers the hidden file picker on the left,
-         a readonly text field shows the picked filename, and the 'Video uploaden' button sits on the right. -->
+    <!-- Hidden file input lives outside the input-group so BS4's flex-flow / sibling rules
+         aren't disturbed. The label inside the prepend triggers it via for="..." -->
+    <input type="file" id="{$fieldId}_file" accept="video/*" class="d-none" />
     <div class="input-group bunny-upload-controls" style="max-width:560px;">
         <div class="input-group-prepend">
             <label for="{$fieldId}_file" class="btn btn-outline-secondary mb-0" style="cursor:pointer;">Bestand kiezen</label>
         </div>
         <input type="text" id="{$fieldId}_file_display" class="form-control" readonly placeholder="Geen video gekozen" />
-        <input type="file" id="{$fieldId}_file" accept="video/*" class="d-none" />
         <div class="input-group-append">
             <button type="button" id="{$fieldId}_btn" class="btn btn-outline-secondary" disabled>Video uploaden</button>
         </div>
