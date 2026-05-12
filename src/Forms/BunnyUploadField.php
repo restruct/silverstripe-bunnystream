@@ -115,7 +115,7 @@ EXISTING;
         <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" aria-describedby="{$fieldId}_btn" style="padding:.35rem;" />
         <!-- SS CMS bundles Bootstrap 4: input-group children need the input-group-append wrapper to flush -->
         <div class="input-group-append">
-            <button type="button" id="{$fieldId}_btn" class="btn btn-outline-secondary" disabled>Video uploaden</button>
+            <button type="button" id="{$fieldId}_btn" class="btn btn-outline-info" disabled>Video uploaden</button>
         </div>
     </div>
     <div id="{$fieldId}_status" class="text-muted small mt-1"></div>
