@@ -112,8 +112,8 @@ EXISTING;
     {$existingVideoHtml}
 
     <div class="input-group bunny-upload-controls" style="max-width:560px;">
-        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" />
-        <button type="button" id="{$fieldId}_btn" class="btn btn-outline-primary" disabled>Video uploaden</button>
+        <input type="file" id="{$fieldId}_file" accept="video/*" class="form-control" aria-describedby="{$fieldId}_btn" />
+        <button type="button" id="{$fieldId}_btn" class="btn btn-outline-secondary" disabled>Video uploaden</button>
     </div>
     <div id="{$fieldId}_status" class="text-muted small mt-1"></div>
 
