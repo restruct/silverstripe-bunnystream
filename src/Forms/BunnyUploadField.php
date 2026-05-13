@@ -165,9 +165,16 @@ EXISTING;
 
     // Ontkoppelen: clear the relation client-side so on save the has_one is cleared.
     // The BunnyVideo record stays in the library (other questions may reference it).
+    // Helper: update the hidden input AND dispatch a change event so other code
+    // (e.g. consumer-side mutex with an external URL field) can react.
+    function setVideoId(val) {
+        hiddenInput.value = val;
+        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
     if (removeBtn) {
         removeBtn.addEventListener('click', function() {
-            hiddenInput.value = '';
+            setVideoId('');
             // d-flex applies display:flex !important — use setProperty with priority to override
             if (previewWrap) previewWrap.style.setProperty('display', 'none', 'important');
             if (uploadWrap) uploadWrap.style.display = 'block';
@@ -221,7 +228,7 @@ EXISTING;
                     progressBar.textContent = pct + '%';
                 },
                 onSuccess: function() {
-                    hiddenInput.value = data.bunnyVideoId;
+                    setVideoId(data.bunnyVideoId);
                     progressBar.style.width = '100%';
                     progressBar.textContent = '100%';
                     progressBar.classList.add('bg-success');
