@@ -31,15 +31,6 @@
         var createUrl = wrapper.dataset.createUrl;
         if (!fieldId || !createUrl) return;
 
-        // DisplayLogic auto-eval only fires off onmatch on text/email/number
-        // inputs — hidden inputs are ignored, so wrappers depending on
-        // BunnyVideoID don't evaluate on initial render. Trigger notify()
-        // ourselves once, deferred so DL has already marked the dispatcher class.
-        setTimeout(function() {
-            var hidden = document.getElementById(fieldId);
-            if (hidden) notifyDisplayLogic(hidden);
-        }, 0);
-
         var fileInput = document.getElementById(fieldId + '_file');
         var uploadBtn = document.getElementById(fieldId + '_btn');
         var statusEl = document.getElementById(fieldId + '_status');
