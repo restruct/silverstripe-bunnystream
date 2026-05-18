@@ -120,11 +120,19 @@ EXISTING;
         $descriptionHtml = $descriptionText !== '' ? '<div class="form__field-description small text-muted mt-1">' . $descriptionText . '</div>' : '';
         $this->setDescription('');
 
-        # Include tus-js-client from CDN
+        # Behaviour scripts via the Requirements API — never inline <script> tags
+        # in Field() output (those break SS admin's script ordering on initial load
+        # AND don't execute on React-driven AJAX form swaps).
         Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
+        Requirements::javascript('restruct/silverstripe-bunnystream:client/dist/js/bunny-upload-field.js');
+
+        # Render-time config travels via data-* attributes; the static JS reads them
+        # off the .bunny-upload-field wrapper and initialises each instance.
+        $safeCreateUrl = htmlspecialchars($createUrl);
+        $safeFieldId = htmlspecialchars($fieldId);
 
         $html = <<<HTML
-<div id="{$fieldId}_wrapper" class="bunny-upload-field">
+<div id="{$fieldId}_wrapper" class="bunny-upload-field" data-field-id="{$safeFieldId}" data-create-url="{$safeCreateUrl}">
     <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
     {$existingVideoHtml}
 
@@ -146,113 +154,6 @@ EXISTING;
         {$descriptionHtml}
     </div>
 </div>
-
-<script>
-(function() {
-    var fieldId = '{$fieldId}';
-    var createUrl = '{$createUrl}';
-
-    var fileInput = document.getElementById(fieldId + '_file');
-    var uploadBtn = document.getElementById(fieldId + '_btn');
-    var statusEl = document.getElementById(fieldId + '_status');
-    var progressEl = document.getElementById(fieldId + '_progress');
-    var progressBar = progressEl.querySelector('.progress-bar');
-    var resultEl = document.getElementById(fieldId + '_result');
-    var hiddenInput = document.getElementById(fieldId);
-    var uploadWrap = document.getElementById(fieldId + '_upload');
-    var previewWrap = document.getElementById(fieldId + '_preview');
-    var removeBtn = document.getElementById(fieldId + '_remove');
-
-    // Ontkoppelen: clear the relation client-side so on save the has_one is cleared.
-    // The BunnyVideo record stays in the library (other questions may reference it).
-    // Helper: update the hidden input AND dispatch a change event so other code
-    // (e.g. consumer-side mutex with an external URL field) can react.
-    function setVideoId(val) {
-        hiddenInput.value = val;
-        hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
-    }
-
-    if (removeBtn) {
-        removeBtn.addEventListener('click', function() {
-            setVideoId('');
-            // d-flex applies display:flex !important — use setProperty with priority to override
-            if (previewWrap) previewWrap.style.setProperty('display', 'none', 'important');
-            if (uploadWrap) uploadWrap.style.display = 'block';
-        });
-    }
-
-    fileInput.addEventListener('change', function() {
-        uploadBtn.disabled = !fileInput.files.length;
-        statusEl.textContent = fileInput.files.length ? fileInput.files[0].name : '';
-    });
-
-    uploadBtn.addEventListener('click', function() {
-        var file = fileInput.files[0];
-        if (!file) return;
-
-        uploadBtn.disabled = true;
-        fileInput.disabled = true;
-        statusEl.textContent = 'Voorbereiden...';
-        progressEl.style.display = 'block';
-
-        // Step 1: Create video + get TUS credentials from our server
-        fetch(createUrl + '?title=' + encodeURIComponent(file.name), {
-            credentials: 'same-origin',
-            headers: { 'X-Requested-With': 'XMLHttpRequest' }
-        })
-        .then(function(r) { return r.json(); })
-        .then(function(data) {
-            if (!data.tusEndpoint) throw new Error('Geen upload endpoint ontvangen');
-
-            statusEl.textContent = 'Uploaden...';
-
-            // Step 2: Upload directly to Bunny via TUS
-            var upload = new tus.Upload(file, {
-                endpoint: data.tusEndpoint,
-                retryDelays: [0, 1000, 3000, 5000],
-                chunkSize: 25 * 1024 * 1024,
-                headers: data.tusHeaders,
-                metadata: {
-                    filetype: file.type,
-                    title: file.name,
-                },
-                onError: function(error) {
-                    statusEl.textContent = 'Upload mislukt: ' + error.message;
-                    uploadBtn.disabled = false;
-                    fileInput.disabled = false;
-                    progressEl.style.display = 'none';
-                },
-                onProgress: function(bytesUploaded, bytesTotal) {
-                    var pct = Math.round(bytesUploaded / bytesTotal * 100);
-                    progressBar.style.width = pct + '%';
-                    progressBar.textContent = pct + '%';
-                },
-                onSuccess: function() {
-                    setVideoId(data.bunnyVideoId);
-                    progressBar.style.width = '100%';
-                    progressBar.textContent = '100%';
-                    progressBar.classList.add('bg-success');
-                    statusEl.textContent = '';
-                    resultEl.textContent = 'Video geüpload — sla deze vraag op om de koppeling te bevestigen';
-                    resultEl.style.display = 'block';
-                    // Lock the upload UI so another file can't be picked while a video is pending.
-                    // To swap videos, save first, then use the Ontkoppelen button on reload.
-                    fileInput.disabled = true;
-                    uploadBtn.disabled = true;
-                }
-            });
-
-            upload.start();
-        })
-        .catch(function(err) {
-            statusEl.textContent = 'Fout: ' + err.message;
-            uploadBtn.disabled = false;
-            fileInput.disabled = false;
-            progressEl.style.display = 'none';
-        });
-    });
-})();
-</script>
 HTML;
 
         return $html;
