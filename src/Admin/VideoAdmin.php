@@ -13,7 +13,7 @@ class VideoAdmin extends ModelAdmin
 {
     private static $url_segment = 'videos';
     private static $menu_title = 'Video\'s';
-    private static $menu_icon_class = 'font-icon-play-circle';
+    private static $menu_icon_class = 'font-icon-block-media';
     private static $menu_priority = -1;
 
     private static $managed_models = [
