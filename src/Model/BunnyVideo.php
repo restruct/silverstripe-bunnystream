@@ -120,7 +120,7 @@ class BunnyVideo extends DataObject
         $html = '';
         if ($this->VideoGuid) {
             $url = htmlspecialchars($this->getThumbnailUrl());
-            $html = '<img src="' . $url . '" alt="" style="max-width:120px; max-height:68px; border-radius:3px; object-fit:cover;" onerror="this.style.visibility=\'hidden\'">';
+            $html = '<img src="' . $url . '" alt="" style="max-width:96px; max-height:54px; border-radius:3px; object-fit:cover;" onerror="this.style.visibility=\'hidden\'">';
         }
         return DBHTMLText::create()->setValue($html);
     }
