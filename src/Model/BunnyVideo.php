@@ -2,9 +2,13 @@
 
 namespace Restruct\BunnyStream\Model;
 
+use Psr\Log\LoggerInterface;
 use Restruct\BunnyStream\Api\BunnyStreamClient;
 use SilverStripe\Assets\Image;
+use SilverStripe\Control\Controller;
 use SilverStripe\Core\ClassInfo;
+use SilverStripe\Core\Injector\Injector;
+use SilverStripe\Forms\CheckboxField;
 use SilverStripe\Forms\CompositeField;
 use SilverStripe\Forms\FieldGroup;
 use SilverStripe\Forms\GridField\GridField;
@@ -17,6 +21,7 @@ use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBHTMLText;
+use SilverStripe\ORM\ValidationException;
 
 /**
  * Stores a reference to a video on Bunny Stream.
@@ -317,11 +322,157 @@ class BunnyVideo extends DataObject
             }
         }
 
+        # If a previous delete attempt failed on the Bunny API, show a banner +
+        # a force-local-delete checkbox. Checking + saving sets a session flag
+        # that the next delete attempt reads to skip the API call.
+        $lastError = $this->getLastDeleteErrorFromSession();
+        if ($lastError !== null) {
+            $fields->addFieldToTab('Root.Main',
+                LiteralField::create('BunnyDeleteErrorAlert',
+                    '<div class="alert alert-warning"><strong>Vorige verwijdering mislukte op Bunny Stream:</strong> '
+                    . htmlspecialchars($lastError)
+                    . '<br>Vink onderstaande optie aan en sla op om bij de volgende verwijderpoging de Bunny API over te slaan '
+                    . '(de remote video blijft dan staan).</div>'
+                ),
+                'Title'
+            );
+            $fields->addFieldToTab('Root.Main',
+                CheckboxField::create('ForceLocalDelete',
+                    'Forceer lokale verwijdering bij volgende delete (Bunny API overslaan)'
+                ),
+                'Title'
+            );
+        }
+
         return $fields;
     }
 
     public function getTitle(): string
     {
         return $this->getField('Title') ?: $this->VideoGuid ?: '(geen video)';
+    }
+
+    // -------------------------------------------------------------------------
+    // Delete lifecycle — propagate to Bunny Stream API (fail-closed by default)
+    // -------------------------------------------------------------------------
+
+    /**
+     * Transient flag set by the CMS checkbox; persisted into the session via
+     * onBeforeWrite so the next delete attempt reads it back.
+     * @internal
+     */
+    public ?bool $ForceLocalDelete = null;
+
+    /**
+     * Persist the ForceLocalDelete checkbox state into the user's session so
+     * the subsequent delete request can find it. Cleared when unchecked.
+     */
+    public function onBeforeWrite()
+    {
+        parent::onBeforeWrite();
+        if ($this->ID && $this->ForceLocalDelete !== null) {
+            $this->setForceLocalDeleteSession((bool) $this->ForceLocalDelete);
+        }
+    }
+
+    /**
+     * Try to delete the remote video on Bunny Stream first. If that fails,
+     * abort the local delete and stash the error on the session so the next
+     * edit-form render shows a "force local delete" checkbox.
+     *
+     * Force-local-delete bypass: if the user ticked the checkbox and saved
+     * (which set BunnyVideo.forceLocalDelete.<ID> in the session), skip the
+     * API call entirely and proceed with local-only deletion. The remote
+     * video remains on Bunny until cleaned up manually / by a reconciler.
+     *
+     * @throws ValidationException When the remote delete fails and the user
+     *         has not opted into force-local-delete.
+     */
+    public function onBeforeDelete()
+    {
+        parent::onBeforeDelete();
+
+        # Nothing to delete remotely — local-only delete is fine
+        if (!$this->VideoGuid) {
+            $this->clearDeleteSessionKeys();
+            return;
+        }
+
+        # User explicitly opted in: skip API, log the orphaned remote video, proceed
+        if ($this->getForceLocalDeleteFromSession()) {
+            Injector::inst()->get(LoggerInterface::class)->warning(sprintf(
+                'BunnyVideo #%d (%s): forced local delete — remote video NOT deleted, may need manual cleanup',
+                $this->ID,
+                $this->VideoGuid
+            ));
+            $this->clearDeleteSessionKeys();
+            return;
+        }
+
+        # Default path: fail-closed if Bunny API errors out
+        try {
+            (new BunnyStreamClient())->deleteVideo($this->VideoGuid);
+            $this->clearDeleteSessionKeys();
+        } catch (\Throwable $e) {
+            $this->setLastDeleteErrorOnSession($e->getMessage());
+            throw new ValidationException(
+                "Verwijderen op Bunny Stream mislukt: {$e->getMessage()}. "
+                . "Open de video in beheer en vink 'Forceer lokale verwijdering' aan om alleen lokaal te verwijderen."
+            );
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // Session helpers (per-user, per-record state for the force-delete flow)
+    // -------------------------------------------------------------------------
+
+    private function deleteSessionKey(string $type): string
+    {
+        return "BunnyVideo.{$type}." . (int) $this->ID;
+    }
+
+    private function getSession()
+    {
+        $controller = Controller::has_curr() ? Controller::curr() : null;
+        return $controller && $controller->getRequest() ? $controller->getRequest()->getSession() : null;
+    }
+
+    private function setLastDeleteErrorOnSession(string $error): void
+    {
+        if ($session = $this->getSession()) {
+            $session->set($this->deleteSessionKey('lastDeleteError'), $error);
+        }
+    }
+
+    private function getLastDeleteErrorFromSession(): ?string
+    {
+        if (!$this->ID || !($session = $this->getSession())) {
+            return null;
+        }
+        return $session->get($this->deleteSessionKey('lastDeleteError'));
+    }
+
+    private function setForceLocalDeleteSession(bool $force): void
+    {
+        if ($session = $this->getSession()) {
+            $session->set($this->deleteSessionKey('forceLocalDelete'), $force);
+        }
+    }
+
+    private function getForceLocalDeleteFromSession(): bool
+    {
+        if (!($session = $this->getSession())) {
+            return false;
+        }
+        return (bool) $session->get($this->deleteSessionKey('forceLocalDelete'));
+    }
+
+    private function clearDeleteSessionKeys(): void
+    {
+        if (!($session = $this->getSession())) {
+            return;
+        }
+        $session->clear($this->deleteSessionKey('lastDeleteError'));
+        $session->clear($this->deleteSessionKey('forceLocalDelete'));
     }
 }
