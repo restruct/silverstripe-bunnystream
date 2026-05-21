@@ -14,13 +14,77 @@
  * panel navigation anyway.
  */
 (function() {
+    // Minimal DisplayLogic evaluator. The CMS-loaded jquery.entwine isn't
+    // reachable from our standalone script (window.jQuery has no entwine
+    // methods — different jQuery instance under webpack), so we can't call
+    // its $dispatcher.notify() / $wrapper.testLogic() to re-sync visibility
+    // after a programmatic value change.
+    //
+    // Instead: find every .displaylogicwrapper in the form, evaluate its
+    // `data-display-logic-eval` expression manually, and toggle display
+    // accordingly. The eval strings use only `this.findHolder('X').evaluateY('Z')`
+    // — we mirror just enough of that surface to keep the wrappers honest.
+    function buildEvaluator(form) {
+        return {
+            findHolder: function (name) {
+                // Holder ID convention: {FormID}_{FieldName}_Holder
+                var formId = form.getAttribute('id') || '';
+                var holder = form.querySelector('#' + formId + '_' + name + '_Holder');
+                var input = holder ? holder.querySelector('[name="' + name + '"]') : null;
+                if (!input) input = form.querySelector('[name="' + name + '"]');
+                var val = input ? (input.value || '') : '';
+                return {
+                    evaluateEmpty: function () { return val.trim() === ''; },
+                    evaluateNotEmpty: function () { return val.trim() !== ''; },
+                    evaluateEqualTo: function (v) { return val === v; },
+                    evaluateNotEqualTo: function (v) { return val !== v; },
+                    evaluateGreaterThan: function (v) { return parseFloat(val) > parseFloat(v); },
+                    evaluateLessThan: function (v) { return parseFloat(val) < parseFloat(v); },
+                    evaluateContains: function (v) { return val.indexOf(v) !== -1; },
+                    evaluateStartsWith: function (v) { return val.indexOf(v) === 0; },
+                    evaluateEndsWith: function (v) { return val.indexOf(v, val.length - v.length) !== -1; },
+                };
+            }
+        };
+    }
+
+    function resyncDisplayLogic(input) {
+        var form = input.closest('form');
+        if (!form) return;
+        var evaluator = buildEvaluator(form);
+        var wrappers = form.querySelectorAll('.displaylogicwrapper');
+        wrappers.forEach(function (wrapper) {
+            var evalStr = wrapper.getAttribute('data-display-logic-eval');
+            if (!evalStr) return;
+            var result;
+            try {
+                // eslint-disable-next-line no-new-func
+                result = (new Function('return ' + evalStr)).call(evaluator);
+            } catch (e) {
+                return; // unknown criterion → leave wrapper alone
+            }
+            // .display-logic-hide → hide when criteria TRUE
+            // .display-logic-display → show when criteria TRUE
+            if (wrapper.classList.contains('display-logic-hide')) {
+                wrapper.style.display = result ? 'none' : '';
+            } else if (wrapper.classList.contains('display-logic-display')) {
+                wrapper.style.display = result ? '' : 'none';
+            }
+        });
+    }
+
     function notifyDisplayLogic(input) {
-        if (!window.jQuery) return;
-        var $dispatcher = window.jQuery(input).closest('.display-logic-dispatcher');
-        // .notify() is an entwine method on .display-logic-dispatcher wrappers
-        if ($dispatcher.length && typeof $dispatcher.notify === 'function') {
-            $dispatcher.notify();
+        // Try the standard entwine path first (works in some contexts).
+        if (window.jQuery) {
+            try {
+                var $dispatcher = window.jQuery(input).closest('.display-logic-dispatcher');
+                if ($dispatcher.length && typeof $dispatcher.notify === 'function') {
+                    $dispatcher.notify();
+                }
+            } catch (e) { /* fall through */ }
         }
+        // Always do our own resync — independent of whether entwine bound.
+        resyncDisplayLogic(input);
     }
 
     function init(wrapper) {
@@ -43,9 +107,15 @@
         var removeBtn = document.getElementById(fieldId + '_remove');
 
         // Set the hidden value AND wake up DisplayLogic + any other listeners.
+        // Native dispatchEvent reaches addEventListener handlers; jQuery .trigger()
+        // is needed for jQuery-bound entwine handlers (SS DisplayLogic uses these
+        // and won't see purely-native events on hidden inputs).
         function setVideoId(val) {
             hiddenInput.value = val;
             hiddenInput.dispatchEvent(new Event('change', { bubbles: true }));
+            if (window.jQuery) {
+                window.jQuery(hiddenInput).trigger('change');
+            }
             notifyDisplayLogic(hiddenInput);
         }
 
