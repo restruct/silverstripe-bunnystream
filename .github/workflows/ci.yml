@@ -118,7 +118,7 @@ jobs:
           <!-- Warning-to-error escalation is the RUNNER's behaviour and differs by PHPUnit
                major: 9 (SS5) converts warnings by default, 11 (SS6) has no such attribute.
                failOnWarning is pinned so a warning behaves identically on every leg. -->
-          <!-- failOnEmptyTestSuite backs up the --fail-on-empty-test-suite flag on each run, so a
+          <!-- failOnEmptyTestSuite backs up the fail-on-empty-test-suite CLI flag on each run, so a
                run that loads no tests is red even if the flag is dropped from a leg. -->
           <phpunit bootstrap="vendor/silverstripe/framework/tests/bootstrap.php" colors="true"
                    failOnWarning="true" failOnEmptyTestSuite="true">
