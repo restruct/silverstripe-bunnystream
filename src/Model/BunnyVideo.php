@@ -46,7 +46,9 @@ class BunnyVideo extends DataObject
         'Width' => 'Int',
         'Height' => 'Int',
         'EncodeProgress' => 'Int',     # 0-100
-        'StorageSize' => 'Int',        # Bytes
+        # Bytes. BigInt, not Int: a signed 32-bit Int stops at 2 GiB, which a video easily
+        # exceeds (framework 6 rejects the write, MySQL on 5 clamps the value).
+        'StorageSize' => 'BigInt',
         # Generic per-video player settings as a single JSON blob, so new
         # options can be added without a schema change. Read/write via
         # getPlayerOption()/setPlayerOption(); see KNOWN_PLAYER_OPTIONS for the
