@@ -24,7 +24,12 @@ dev/build (for example from a one-off BuildTask or a PHP shell):
 
 ```php
 foreach (\Restruct\BunnyStream\Model\BunnyVideo::get()->filter('StorageSize', 2147483647) as $video) {
-    $video->refreshFromApi(); # fetches the video from Bunny and writes the record
+    try {
+        $video->refreshFromApi(); # fetches the video from Bunny and writes the record
+    } catch (\Throwable $e) {
+        # a video deleted on Bunny (404) throws; report it and carry on with the rest
+        echo $video->ID, ': ', $e->getMessage(), "\n";
+    }
 }
 ```
 
