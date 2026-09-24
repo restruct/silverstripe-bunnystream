@@ -69,6 +69,12 @@ class BunnyVideo extends DataObject
         'DimensionsFormatted' => 'Afmetingen',
     ];
 
+    # Markup helpers are cast as HTML, so $PlayerIframeHTML in a template renders the player
+    # instead of printing escaped tags (a plain string return is cast as Text by default).
+    private static $casting = [
+        'PlayerIframeHTML' => 'HTMLFragment',
+    ];
+
     private static $searchable_fields = [
         'Title',
         'VideoGuid',

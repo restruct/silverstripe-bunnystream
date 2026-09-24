@@ -297,6 +297,15 @@ class BunnyVideoTest extends SapphireTest
         $this->assertMatchesRegularExpression('#/g-1\?token=[0-9a-f]{64}&amp;expires=\d+&amp;autoplay=false&amp;rememberPosition=true"#', $html);
     }
 
+    public function testPlayerIframeRendersAsHtmlInTemplates()
+    {
+        $video = BunnyVideo::create(['VideoGuid' => 'g-1']);
+        $rendered = (string) $video->obj('PlayerIframeHTML')->forTemplate();
+
+        $this->assertStringContainsString('<iframe src="https://iframe.mediadelivery.net/embed/', $rendered);
+        $this->assertStringNotContainsString('&lt;iframe', $rendered);
+    }
+
     public function testPlayerIframeEscapesTheStartTime()
     {
         $video = BunnyVideo::create(['VideoGuid' => 'g-1']);
