@@ -31,7 +31,7 @@ Requires PHP `^8.1`, `silverstripe/framework ^5 || ^6`, `silverstripe/admin ^2 |
 
 - `$BunnyVideo.PlayerIframeHTML` works in templates: it is now cast as HTML instead of being
   escaped as text.
-- Test suite (identical on Silverstripe 5 and 6) with a regression test for each fix above, and a
+- Test suite (58 tests, identical on Silverstripe 5 and 6) with a regression test for each fix above, and a
   GitHub Actions matrix: Silverstripe 5 on PHP 8.1 and 8.3, Silverstripe 6 on PHP 8.3 and 8.4.
 - README (there was none): configuration, usage, player options, the delete flow, the API client,
   running the tests, and a version compatibility table. MIT `LICENSE` file.
