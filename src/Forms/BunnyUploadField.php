@@ -133,10 +133,14 @@ EXISTING;
         # off the .bunny-upload-field wrapper and initialises each instance.
         $safeCreateUrl = htmlspecialchars($createUrl);
         $safeFieldId = htmlspecialchars($fieldId);
+        # The value lands in an HTML attribute, and after a failed submit it is whatever the
+        # browser posted, so it is escaped like everything else echoed here.
+        $safeName = htmlspecialchars((string) $name);
+        $safeValue = htmlspecialchars((string) $value);
 
         $html = <<<HTML
 <div id="{$fieldId}_wrapper" class="bunny-upload-field" data-field-id="{$safeFieldId}" data-create-url="{$safeCreateUrl}">
-    <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
+    <input type="hidden" name="{$safeName}" id="{$fieldId}" value="{$safeValue}" />
     {$existingVideoHtml}
 
     <div id="{$fieldId}_upload" style="display:{$uploadDisplay};">
