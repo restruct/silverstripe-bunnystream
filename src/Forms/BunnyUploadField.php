@@ -72,7 +72,10 @@ class BunnyUploadField extends FormField
     {
         $fieldId = $this->ID();
         $name = $this->getName();
-        $value = $this->Value();
+        # FormField::Value() was removed in Silverstripe 6; dataValue() returns the same raw
+        # value on both 5 and 6.
+        //$value = $this->Value();
+        $value = $this->dataValue();
         $createUrl = $this->Link('createUpload');
 
         # Show existing video info with poster thumbnail + a remove button to clear the relation
