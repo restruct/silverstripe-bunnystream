@@ -197,6 +197,10 @@ class BunnyVideoTest extends SapphireTest
     {
         $video = BunnyVideo::create(['PlayerOptions' => '{not json']);
         $this->assertSame([], $video->getPlayerOptionsData());
+
+        # Valid JSON that is not an object is not an options array either
+        $video = BunnyVideo::create(['PlayerOptions' => '"just a string"']);
+        $this->assertSame([], $video->getPlayerOptionsData());
     }
 
     public function testPlayerOptionsRoundTripThroughTheJsonBlob()
@@ -444,9 +448,18 @@ class BunnyVideoTest extends SapphireTest
 
     public function testCmsFieldsDoNotResyncAFailedVideo()
     {
-        $video = $this->makeVideo(['Status' => BunnyStreamClient::STATUS_ERROR]);
-        $video->getCMSFields();
-        $this->assertCount(0, MockBunnyClient::$history);
+        foreach ([BunnyStreamClient::STATUS_ERROR, BunnyStreamClient::STATUS_UPLOAD_FAILED] as $status) {
+            MockBunnyClient::reset();
+            # A response IS available, so a sync attempt would be recorded rather than failing
+            # silently on an empty mock queue (which getCMSFields() would swallow)
+            MockBunnyClient::queue(new Response(200, [], json_encode(['status' => BunnyStreamClient::STATUS_FINISHED])));
+            $video = $this->makeVideo(['Status' => $status]);
+
+            $video->getCMSFields();
+
+            $this->assertCount(0, MockBunnyClient::$history, "status $status is terminal: no re-sync");
+            $this->assertEquals($status, $video->Status);
+        }
     }
 
     public function testCmsFieldsListUsages()
@@ -504,9 +517,34 @@ class BunnyVideoTest extends SapphireTest
         $id = $video->ID;
         MockBunnyClient::queue(new Response(200, [], ''));
 
-        $video->delete();
+        # SapphireTest's bootstrap pushes a dummy controller on Silverstripe 5, so the stack has to
+        # be emptied explicitly to reach the "no controller" path (and restored afterwards). With
+        # an empty stack a bare Controller::curr() warns on 5, which PHPUnit 9 turns into an error.
+        $popped = [];
+        while ($controller = static::currentControllerOrNull()) {
+            $controller->popCurrent();
+            $popped[] = $controller;
+        }
+        try {
+            $video->delete();
+        } finally {
+            foreach (array_reverse($popped) as $controller) {
+                $controller->pushCurrent();
+            }
+        }
 
         $this->assertNull(BunnyVideo::get()->byID($id));
+    }
+
+    /**
+     * The current controller without Silverstripe 5's empty-stack warning (has_curr() is gone in 6).
+     */
+    protected static function currentControllerOrNull(): ?Controller
+    {
+        if (method_exists(Controller::class, 'has_curr')) {
+            return Controller::has_curr() ? Controller::curr() : null;
+        }
+        return Controller::curr();
     }
 
     public function testFailedRemoteDeleteKeepsTheRecordAndRemembersTheError()
