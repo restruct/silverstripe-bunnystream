@@ -37,7 +37,7 @@ class BunnyUploadField extends FormField
         $request = Controller::curr()->getRequest();
         $title = $request->getVar('title') ?: 'Untitled';
 
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
 
         # Step 1: Create video object on Bunny
         $video = $client->createVideo($title);

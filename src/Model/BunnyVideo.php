@@ -265,13 +265,13 @@ class BunnyVideo extends DataObject
 
     public function getPlayerURL(): string
     {
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
         return $client->getEmbedUrl($this->VideoGuid);
     }
 
     public function getThumbnailUrl(): string
     {
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
         return $client->getThumbnailUrl($this->VideoGuid);
     }
 
@@ -316,7 +316,7 @@ class BunnyVideo extends DataObject
     {
         if (!$this->VideoGuid) return;
 
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
         $data = $client->getVideo($this->VideoGuid);
 
         $this->Title = $data->title ?? $this->Title;
@@ -571,7 +571,7 @@ class BunnyVideo extends DataObject
 
         # Default path: fail-closed if Bunny API errors out
         try {
-            (new BunnyStreamClient())->deleteVideo($this->VideoGuid);
+            BunnyStreamClient::create()->deleteVideo($this->VideoGuid);
             $this->clearDeleteSessionKeys();
         } catch (\Throwable $e) {
             $this->setLastDeleteErrorOnSession($e->getMessage());
