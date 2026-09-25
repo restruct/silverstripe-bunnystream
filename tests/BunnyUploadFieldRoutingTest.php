@@ -40,6 +40,9 @@ class BunnyUploadFieldRoutingTest extends FunctionalTest
     public function testCreateUploadIsRoutedToTheField()
     {
         MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'routed-guid'])));
+        # createUpload() demands a CMS user since issue #7 (batch-5 decision 6). No token needed:
+        # FunctionalTest disables SecurityToken, so SecurityToken::inst() is a NullSecurityToken
+        $this->logInWithPermission('CMS_ACCESS_LeftAndMain');
 
         $response = $this->get('bunnytest/Form/field/BunnyVideoID/createUpload?title=Routed.mp4');
 

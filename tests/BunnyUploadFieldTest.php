@@ -8,6 +8,7 @@ use Restruct\BunnyStream\Forms\BunnyUploadField;
 use Restruct\BunnyStream\Model\BunnyVideo;
 use Restruct\BunnyStream\Tests\Stub\MockBunnyClient;
 use Restruct\BunnyStream\Tests\Stub\UploadTestController;
+use SilverStripe\Control\Controller;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\HTTPResponse_Exception;
 use SilverStripe\Control\Session;
@@ -133,6 +134,9 @@ class BunnyUploadFieldTest extends SapphireTest
     {
         MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'new-guid'])));
         $field = $this->makeField(null, ['title' => 'My upload.mp4']);
+        # createUpload() demands the form's CSRF token since issue #7 (batch-5 decision 6); the
+        # CMS user is SapphireTest's own ADMIN login for tests that use the database
+        Controller::curr()->getRequest()['SecurityID'] = $field->getForm()->getSecurityToken()->getValue();
 
         $response = $field->createUpload();
 
@@ -157,6 +161,9 @@ class BunnyUploadFieldTest extends SapphireTest
     {
         MockBunnyClient::queue(new Response(200, [], json_encode(['title' => 'x'])));
         $field = $this->makeField(null, ['title' => 'x']);
+        # createUpload() demands the form's CSRF token since issue #7 (batch-5 decision 6); the
+        # CMS user is SapphireTest's own ADMIN login for tests that use the database
+        Controller::curr()->getRequest()['SecurityID'] = $field->getForm()->getSecurityToken()->getValue();
 
         try {
             $field->createUpload();
