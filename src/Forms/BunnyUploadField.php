@@ -37,7 +37,7 @@ class BunnyUploadField extends FormField
         $request = Controller::curr()->getRequest();
         $title = $request->getVar('title') ?: 'Untitled';
 
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
 
         # Step 1: Create video object on Bunny
         $video = $client->createVideo($title);
@@ -72,7 +72,10 @@ class BunnyUploadField extends FormField
     {
         $fieldId = $this->ID();
         $name = $this->getName();
-        $value = $this->Value();
+        # FormField::Value() was removed in Silverstripe 6; dataValue() returns the same raw
+        # value on both 5 and 6.
+        //$value = $this->Value();
+        $value = $this->dataValue();
         $createUrl = $this->Link('createUpload');
 
         # Show existing video info with poster thumbnail + a remove button to clear the relation
@@ -130,10 +133,14 @@ EXISTING;
         # off the .bunny-upload-field wrapper and initialises each instance.
         $safeCreateUrl = htmlspecialchars($createUrl);
         $safeFieldId = htmlspecialchars($fieldId);
+        # The value lands in an HTML attribute, and after a failed submit it is whatever the
+        # browser posted, so it is escaped like everything else echoed here.
+        $safeName = htmlspecialchars((string) $name);
+        $safeValue = htmlspecialchars((string) $value);
 
         $html = <<<HTML
 <div id="{$fieldId}_wrapper" class="bunny-upload-field" data-field-id="{$safeFieldId}" data-create-url="{$safeCreateUrl}">
-    <input type="hidden" name="{$name}" id="{$fieldId}" value="{$value}" />
+    <input type="hidden" name="{$safeName}" id="{$fieldId}" value="{$safeValue}" />
     {$existingVideoHtml}
 
     <div id="{$fieldId}_upload" style="display:{$uploadDisplay};">

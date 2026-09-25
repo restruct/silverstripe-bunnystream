@@ -4,14 +4,20 @@ namespace Restruct\BunnyStream\Api;
 
 use GuzzleHttp\Client;
 use SilverStripe\Core\Environment;
+use SilverStripe\Core\Injector\Injectable;
 
 /**
  * Bunny Stream API client.
+ *
+ * Instantiate with BunnyStreamClient::create() so a project (or a test) can swap
+ * the implementation through the Injector, eg to add logging or a mock transport.
  *
  * @link https://docs.bunny.net/reference/api-overview
  */
 class BunnyStreamClient
 {
+    use Injectable;
+
     const API_BASE = 'https://video.bunnycdn.com';
     const TUS_ENDPOINT = 'https://video.bunnycdn.com/tusupload';
 

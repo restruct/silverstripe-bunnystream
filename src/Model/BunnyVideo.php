@@ -18,10 +18,12 @@ use SilverStripe\Forms\LiteralField;
 use SilverStripe\Forms\ReadonlyField;
 use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
-use SilverStripe\ORM\ArrayList;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBHTMLText;
-use SilverStripe\ORM\ValidationException;
+# ValidationException is not imported: it moved from SilverStripe\ORM (framework 5) to
+# SilverStripe\Core\Validation (framework 6), see validationExceptionClass().
+# (The unused SilverStripe\ORM\ArrayList import was dropped for the same reason: framework 6
+# moved it to SilverStripe\Model\List.)
 
 /**
  * Stores a reference to a video on Bunny Stream.
@@ -44,7 +46,9 @@ class BunnyVideo extends DataObject
         'Width' => 'Int',
         'Height' => 'Int',
         'EncodeProgress' => 'Int',     # 0-100
-        'StorageSize' => 'Int',        # Bytes
+        # Bytes. BigInt, not Int: a signed 32-bit Int stops at 2 GiB, which a video easily
+        # exceeds (framework 6 rejects the write, MySQL on 5 clamps the value).
+        'StorageSize' => 'BigInt',
         # Generic per-video player settings as a single JSON blob, so new
         # options can be added without a schema change. Read/write via
         # getPlayerOption()/setPlayerOption(); see KNOWN_PLAYER_OPTIONS for the
@@ -63,6 +67,12 @@ class BunnyVideo extends DataObject
         'DurationFormatted' => 'Duur',
         'StorageSizeFormatted' => 'Grootte',
         'DimensionsFormatted' => 'Afmetingen',
+    ];
+
+    # Markup helpers are cast as HTML, so $PlayerIframeHTML in a template renders the player
+    # instead of printing escaped tags (a plain string return is cast as Text by default).
+    private static $casting = [
+        'PlayerIframeHTML' => 'HTMLFragment',
     ];
 
     private static $searchable_fields = [
@@ -265,13 +275,13 @@ class BunnyVideo extends DataObject
 
     public function getPlayerURL(): string
     {
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
         return $client->getEmbedUrl($this->VideoGuid);
     }
 
     public function getThumbnailUrl(): string
     {
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
         return $client->getThumbnailUrl($this->VideoGuid);
     }
 
@@ -316,7 +326,7 @@ class BunnyVideo extends DataObject
     {
         if (!$this->VideoGuid) return;
 
-        $client = new BunnyStreamClient();
+        $client = BunnyStreamClient::create();
         $data = $client->getVideo($this->VideoGuid);
 
         $this->Title = $data->title ?? $this->Title;
@@ -545,7 +555,8 @@ class BunnyVideo extends DataObject
      * API call entirely and proceed with local-only deletion. The remote
      * video remains on Bunny until cleaned up manually / by a reconciler.
      *
-     * @throws ValidationException When the remote delete fails and the user
+     * @throws \SilverStripe\Core\Validation\ValidationException|\SilverStripe\ORM\ValidationException
+     *         (framework 6|5) When the remote delete fails and the user
      *         has not opted into force-local-delete.
      */
     public function onBeforeDelete()
@@ -571,11 +582,12 @@ class BunnyVideo extends DataObject
 
         # Default path: fail-closed if Bunny API errors out
         try {
-            (new BunnyStreamClient())->deleteVideo($this->VideoGuid);
+            BunnyStreamClient::create()->deleteVideo($this->VideoGuid);
             $this->clearDeleteSessionKeys();
         } catch (\Throwable $e) {
             $this->setLastDeleteErrorOnSession($e->getMessage());
-            throw new ValidationException(
+            $exceptionClass = static::validationExceptionClass();
+            throw new $exceptionClass(
                 "Verwijderen op Bunny Stream mislukt: {$e->getMessage()}. "
                 . "Open de video in beheer en vink 'Forceer lokale verwijdering' aan om alleen lokaal te verwijderen."
             );
@@ -591,9 +603,28 @@ class BunnyVideo extends DataObject
         return "BunnyVideo.{$type}." . (int) $this->ID;
     }
 
+    /**
+     * The ValidationException class of the running framework: SilverStripe\ORM on 5,
+     * SilverStripe\Core\Validation on 6. Plain strings rather than ::class imports, so neither
+     * name has to exist for this file to load; no leading backslash, as class_exists() expects.
+     */
+    protected static function validationExceptionClass(): string
+    {
+        return class_exists('SilverStripe\\Core\\Validation\\ValidationException')
+            ? 'SilverStripe\\Core\\Validation\\ValidationException'
+            : 'SilverStripe\\ORM\\ValidationException';
+    }
+
     private function getSession()
     {
-        $controller = Controller::has_curr() ? Controller::curr() : null;
+        # Controller::has_curr() was removed in Silverstripe 6 (deprecated in 5.4), so calling it
+        # unconditionally is a fatal there. On 6, curr() simply returns null on an empty stack; on 5,
+        # curr() raises a warning in that case (a delete from a task or queued job has no controller),
+        # so has_curr() is still asked first where it exists. SSKB profiles/core-principles.md.
+        //$controller = Controller::has_curr() ? Controller::curr() : null;
+        $controller = (method_exists(Controller::class, 'has_curr') && !Controller::has_curr())
+            ? null
+            : Controller::curr();
         return $controller && $controller->getRequest() ? $controller->getRequest()->getSession() : null;
     }
 
