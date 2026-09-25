@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.0 (2026-09-25)
+
+### Security
+
+- `BunnyUploadField::createUpload()` created a video on Bunny and a `BunnyVideo` record for any
+  request that reached the field's URL, with no permission or CSRF check
+  ([#7](https://github.com/restruct/silverstripe-bunnystream/issues/7)). It now requires CMS access
+  (`Permission::check('CMS_ACCESS')`: ADMIN or any `CMS_ACCESS_*` code, so editors of other CMS
+  sections are not locked out) and a valid `SecurityID` token. The field renders the token in a
+  `data-security-token` attribute and its JavaScript sends it along.
+
+### Changed
+
+- `createUpload` now refuses requests: 403 without CMS access, 400 without a valid token. A custom
+  JavaScript caller of the endpoint must send the token as the `SecurityID` query var (or an
+  `X-SecurityID` header), read from the field's `data-security-token` attribute.
+- The field's JavaScript shows a readable message when `createUpload` refuses a request, instead of
+  a JSON parse error.
+
 ## 1.0.0 (2026-09-25)
 
 **Silverstripe 5 and 6.** One line, `main`, supports both. Upgrade guide: [UPGRADING.md](UPGRADING.md).

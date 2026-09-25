@@ -93,6 +93,9 @@
 
         var fieldId = wrapper.dataset.fieldId;
         var createUrl = wrapper.dataset.createUrl;
+        // CSRF token rendered by BunnyUploadField::Field(); createUpload() refuses a request
+        // without it (issue #7). Empty when tokens are disabled site-wide.
+        var securityToken = wrapper.dataset.securityToken || '';
         if (!fieldId || !createUrl) return;
 
         var fileInput = document.getElementById(fieldId + '_file');
@@ -143,11 +146,37 @@
             if (statusEl) statusEl.textContent = 'Voorbereiden...';
             if (progressEl) progressEl.style.display = 'block';
 
-            fetch(createUrl + '?title=' + encodeURIComponent(file.name), {
+            // The field's Link() can already carry a query string (e.g. ?stage=Stage), so the
+            // first var is joined with '&' in that case; a second '?' would fold it into the
+            // previous value and the server would never see title or SecurityID.
+            var url = createUrl + (createUrl.indexOf('?') === -1 ? '?' : '&')
+                + 'title=' + encodeURIComponent(file.name);
+            if (securityToken) {
+                url += '&SecurityID=' + encodeURIComponent(securityToken);
+            }
+
+            //fetch(createUrl + '?title=' + encodeURIComponent(file.name), {
+            fetch(url, {
                 credentials: 'same-origin',
                 headers: { 'X-Requested-With': 'XMLHttpRequest' }
             })
-            .then(function(r) { return r.json(); })
+            //.then(function(r) { return r.json(); })
+            .then(function(r) {
+                // A refused request (403 no CMS access, 400 missing/expired token) comes back as
+                // an HTML or plain-text error page, not JSON. Parsing it would only surface an
+                // unreadable "Unexpected token" message, so turn the status into a readable one;
+                // the .catch() below shows it in the status line and re-enables the controls.
+                if (!r.ok) {
+                    var msg = 'upload kon niet worden gestart (HTTP ' + r.status + ')';
+                    if (r.status === 403) {
+                        msg = 'geen rechten om video\'s te uploaden (HTTP 403)';
+                    } else if (r.status === 400) {
+                        msg = 'beveiligingstoken ontbreekt of is verlopen, herlaad de pagina (HTTP 400)';
+                    }
+                    throw new Error(msg);
+                }
+                return r.json();
+            })
             .then(function(data) {
                 if (!data.tusEndpoint) throw new Error('Geen upload endpoint ontvangen');
                 if (statusEl) statusEl.textContent = 'Uploaden...';

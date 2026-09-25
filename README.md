@@ -102,8 +102,10 @@ What happens on upload:
 With a video attached the field shows its thumbnail, title, status and duration, and an
 "Ontkoppelen" button that clears the relation (the video itself is kept).
 
-`createUpload` is reachable by anyone who can reach the form. In the CMS that means CMS users; do
-not put the field on a public front-end form.
+`createUpload` refuses anyone without CMS access (403: ADMIN or any `CMS_ACCESS_*` code is
+needed) and any request without the form's security token (400); the field's JavaScript sends the
+token as `SecurityID`. Do not put the field on a public front-end form: visitors and members
+without CMS access are refused, so it cannot work there.
 
 ### Embed a video
 
