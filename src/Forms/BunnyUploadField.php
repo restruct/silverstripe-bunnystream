@@ -6,6 +6,8 @@ use Restruct\BunnyStream\Api\BunnyStreamClient;
 use Restruct\BunnyStream\Model\BunnyVideo;
 use SilverStripe\Control\Controller;
 use SilverStripe\Forms\FormField;
+use SilverStripe\Security\Permission;
+use SilverStripe\Security\SecurityToken;
 use SilverStripe\View\Requirements;
 
 /**
@@ -35,6 +37,30 @@ class BunnyUploadField extends FormField
     public function createUpload()
     {
         $request = Controller::curr()->getRequest();
+
+        # Hardening (issue #7): every call creates a video on Bunny and a BunnyVideo record, so it
+        # costs storage and must not be reachable by just anyone who can reach the field's URL.
+        #
+        # Permission first: only CMS users may register videos. 'CMS_ACCESS' is the framework's
+        # catch-all code (ADMIN or ANY CMS_ACCESS_* code, same code path on framework 5 and 6),
+        # so an editor who only has access to some other CMS section is not locked out of a
+        # field that sits in that section's edit form. 403: the caller is known, just not allowed.
+        if (!Permission::check('CMS_ACCESS')) {
+            return Controller::curr()->httpError(403, 'Not allowed to upload videos');
+        }
+
+        # CSRF: a logged-in editor's session cookie rides along on a cross-site request, so the
+        # permission check alone does not prove the editor meant to upload. The field renders the
+        # session's token in data-security-token and the JS sends it back as the SecurityID query
+        # var (or X-Securityid header, which checkRequest() also accepts). This action is reached
+        # directly, not through Form::httpSubmission(), so the form's own token check never runs
+        # and the check has to happen here. SecurityToken::inst() is a NullSecurityToken (always
+        # passes) when tokens are disabled site-wide, matching what forms do. 400, as the form
+        # submission check answers a bad token.
+        if (!SecurityToken::inst()->checkRequest($request)) {
+            return Controller::curr()->httpError(400, 'Invalid or missing security token, reload the page and try again');
+        }
+
         $title = $request->getVar('title') ?: 'Untitled';
 
         $client = BunnyStreamClient::create();
@@ -137,9 +163,14 @@ EXISTING;
         # browser posted, so it is escaped like everything else echoed here.
         $safeName = htmlspecialchars((string) $name);
         $safeValue = htmlspecialchars((string) $value);
+        # CSRF token for createUpload (issue #7). SecurityToken::inst() reads the same session
+        # value as the form's own SecurityID field, and it is what createUpload() checks against.
+        # A NullSecurityToken (tokens disabled site-wide) returns null: the attribute is left
+        # empty, the JS then sends no SecurityID, and the check passes by design.
+        $safeToken = htmlspecialchars((string) SecurityToken::inst()->getValue());
 
         $html = <<<HTML
-<div id="{$fieldId}_wrapper" class="bunny-upload-field" data-field-id="{$safeFieldId}" data-create-url="{$safeCreateUrl}">
+<div id="{$fieldId}_wrapper" class="bunny-upload-field" data-field-id="{$safeFieldId}" data-create-url="{$safeCreateUrl}" data-security-token="{$safeToken}">
     <input type="hidden" name="{$safeName}" id="{$fieldId}" value="{$safeValue}" />
     {$existingVideoHtml}
 
