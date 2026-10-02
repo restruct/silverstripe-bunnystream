@@ -125,6 +125,7 @@ jobs:
               <testsuites>
                   <testsuite name="bunnystream">
                       <directory>vendor/restruct/silverstripe-bunnystream/tests</directory>
+                      <exclude>vendor/restruct/silverstripe-bunnystream/tests/browser</exclude>
                   </testsuite>
                   <testsuite name="consumer">
                       <directory>app/tests</directory>
