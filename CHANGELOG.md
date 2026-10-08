@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.1 (unreleased)
+
+### Fixed
+
+- **Silverstripe 6: a title over 255 characters broke uploads and syncing**
+  ([#4](https://github.com/restruct/silverstripe-bunnystream/issues/4)). `Title` is a
+  `Varchar(255)` and framework 6 validates the length on write. `createUpload()` creates the video
+  on Bunny before it writes the record, so a long file name left an orphaned video on Bunny; and
+  `refreshFromApi()` threw on a long title set in the Bunny dashboard, which the CMS swallows, so the
+  record silently stopped updating. Both now cut the title to 255 characters (multibyte-safe). Bunny
+  keeps the full name. On Silverstripe 5 the database already truncated it silently.
+
 ## 1.1.0 (2026-09-25)
 
 ### Security

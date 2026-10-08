@@ -79,7 +79,12 @@ class BunnyUploadField extends FormField
         # Step 3: Create local BunnyVideo record
         $BunnyVideo = BunnyVideo::create();
         $BunnyVideo->VideoGuid = $videoGuid;
-        $BunnyVideo->Title = $title;
+        # Issue #4: Title is Varchar(255) and the video already exists on Bunny at this point, so a
+        # longer file name must not fail the write (framework 6 validates the length and throws,
+        # leaving the remote video orphaned). Cut to 255 characters with mb_substr, as both the
+        # validator and the column count characters, not bytes. Bunny keeps the full name.
+        //$BunnyVideo->Title = $title;
+        $BunnyVideo->Title = mb_substr($title, 0, 255);
         $BunnyVideo->Status = BunnyStreamClient::STATUS_CREATED;
         $BunnyVideo->write();
 

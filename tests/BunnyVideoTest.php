@@ -360,6 +360,26 @@ class BunnyVideoTest extends SapphireTest
         $this->assertEquals(BunnyStreamClient::STATUS_PROCESSING, $video->Status);
     }
 
+    /**
+     * Issue #4: a title set in the Bunny dashboard can exceed the Varchar(255) column. On
+     * framework 6 the write then throws, and getCMSFields() swallows sync errors, so the record
+     * would silently stop updating. The title is cut to 255 characters (multibyte-safe).
+     */
+    public function testRefreshFromApiTruncatesATitleOver255Characters()
+    {
+        $video = $this->makeVideo(['Status' => BunnyStreamClient::STATUS_UPLOADED]);
+        MockBunnyClient::queue(new Response(200, [], json_encode([
+            'title' => str_repeat('ü', 300),
+            'status' => BunnyStreamClient::STATUS_FINISHED,
+        ])));
+
+        $video->refreshFromApi();
+
+        $reloaded = BunnyVideo::get()->byID($video->ID);
+        $this->assertSame(str_repeat('ü', 255), $reloaded->Title);
+        $this->assertTrue($reloaded->isReady(), 'the rest of the sync was written too');
+    }
+
     public function testRefreshFromApiDoesNothingWithoutAGuid()
     {
         BunnyVideo::create()->refreshFromApi();

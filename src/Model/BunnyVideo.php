@@ -329,7 +329,11 @@ class BunnyVideo extends DataObject
         $client = BunnyStreamClient::create();
         $data = $client->getVideo($this->VideoGuid);
 
-        $this->Title = $data->title ?? $this->Title;
+        # Issue #4: a title set in the Bunny dashboard may exceed the Varchar(255) column; on
+        # framework 6 the write would then throw, and getCMSFields() swallows sync errors, so the
+        # record would silently stop updating. Cut to 255 characters (multibyte-safe).
+        //$this->Title = $data->title ?? $this->Title;
+        $this->Title = isset($data->title) ? mb_substr((string) $data->title, 0, 255) : $this->Title;
         $this->Status = $data->status ?? $this->Status;
         $this->Duration = $data->length ?? $this->Duration;
         $this->Width = $data->width ?? $this->Width;

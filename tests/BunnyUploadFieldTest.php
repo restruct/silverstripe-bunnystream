@@ -173,4 +173,29 @@ class BunnyUploadFieldTest extends SapphireTest
         }
         $this->assertSame(0, BunnyVideo::get()->count(), 'no local record without a remote video');
     }
+
+    /**
+     * Issue #4: Title is Varchar(255). The remote video exists before the local write, so a
+     * file name over 255 characters must not make the write fail (framework 6 validates the
+     * length and throws), or the Bunny video is orphaned. Multibyte, because the limit counts
+     * characters, not bytes.
+     */
+    public function testCreateUploadTruncatesATitleOver255Characters()
+    {
+        $long = str_repeat('é', 300) . '.mp4';
+        MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'long-guid'])));
+        $field = $this->makeField(null, ['title' => $long]);
+        Controller::curr()->getRequest()['SecurityID'] = $field->getForm()->getSecurityToken()->getValue();
+
+        $response = $field->createUpload();
+
+        $data = json_decode($response->getBody(), true);
+        $this->assertSame('long-guid', $data['videoGuid']);
+        $video = BunnyVideo::get()->byID($data['bunnyVideoId']);
+        $this->assertNotNull($video, 'the local record exists, so the Bunny video is not orphaned');
+        $this->assertSame(str_repeat('é', 255), $video->Title);
+        # Bunny itself still gets the full name
+        $sent = json_decode((string) MockBunnyClient::$history[0]['request']->getBody(), true);
+        $this->assertSame(['title' => $long], $sent);
+    }
 }
