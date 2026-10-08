@@ -13,6 +13,8 @@
   `CMS_ACCESS_Restruct\BunnyStream\Admin\VideoAdmin` when that config is empty or `false`). A
   project that changes the section's permission therefore changes the records' too. Each asks
   extensions first, so a project can change them per method.
+- `createUpload()` refused a crafted request with an array `title` (`title[]=x`) only by a
+  `TypeError` (500). It now answers 400 before anything is sent to Bunny.
 
 ### Security
 

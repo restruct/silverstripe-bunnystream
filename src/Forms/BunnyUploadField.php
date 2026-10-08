@@ -68,7 +68,15 @@ class BunnyUploadField extends FormField
             return Controller::curr()->httpError(400, 'Invalid or missing security token, reload the page and try again');
         }
 
-        $title = $request->getVar('title') ?: 'Untitled';
+        # The title is the file name the field's JS sends. A crafted request can send an array
+        # (title[]=x), which BunnyStreamClient::createVideo(string) would reject as a TypeError, a
+        # 500; refuse it as the bad request it is, before anything is sent to Bunny.
+        $title = $request->getVar('title');
+        if ($title !== null && !is_string($title)) {
+            return Controller::curr()->httpError(400, 'Invalid title');
+        }
+        //$title = $request->getVar('title') ?: 'Untitled';
+        $title = $title ?: 'Untitled';
 
         $client = BunnyStreamClient::create();
 

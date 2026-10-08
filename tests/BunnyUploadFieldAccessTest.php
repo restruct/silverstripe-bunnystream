@@ -195,4 +195,18 @@ class BunnyUploadFieldAccessTest extends SapphireTest
         }
     }
 
+    /**
+     * A crafted title[]=x reaches createVideo(string) as an array, a TypeError (500). It is refused
+     * as a bad request instead, before anything is sent to Bunny.
+     */
+    public function testAnArrayTitleIsRefused()
+    {
+        $this->logInWithPermission('CMS_ACCESS_LeftAndMain');
+        $field = $this->makeField();
+        $field->getForm()->getController()->getRequest()->offsetSet('title', ['x']);
+
+        $this->assertSame(400, $this->statusOf($field));
+        $this->assertCount(0, MockBunnyClient::$history, 'nothing sent to Bunny');
+        $this->assertSame(0, BunnyVideo::get()->count());
+    }
 }
