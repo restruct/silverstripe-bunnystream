@@ -17,6 +17,7 @@ use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\FunctionalTest;
 use SilverStripe\Forms\FieldList;
 use SilverStripe\Forms\Form;
+use Restruct\BunnyStream\Admin\VideoAdmin;
 use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
@@ -24,8 +25,9 @@ use SilverStripe\Security\Permission;
 /**
  * Issue #6: BunnyVideo had no permission methods, so the DataObject defaults (ADMIN only) applied,
  * while VideoAdmin admits any member with CMS_ACCESS_LeftAndMain. An editor could open the Videos
- * section but not create, edit or delete a video. The methods now ask for CMS access
- * (Permission 'CMS_ACCESS'), the same check createUpload() has made since 1.1.0 (#7).
+ * section but not create, edit or delete a video. The methods now ask for exactly what opening
+ * VideoAdmin asks for (its required_permission_codes), not for any CMS access: a Pages-only editor
+ * must not delete videos, as that deletes them on Bunny too.
  */
 class BunnyVideoPermissionsTest extends FunctionalTest
 {
@@ -97,11 +99,47 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         $this->assertCan(true, $this->memberWith('CMS_ACCESS_LeftAndMain'), 'a VideoAdmin editor');
     }
 
-    public function testEditorOfAnotherCmsSectionCanManageVideos()
+    public function testAdminCanManageVideos()
     {
-        # The same reach as createUpload(): an editor whose form holds a BunnyUploadField can
-        # already register videos, so they may also manage them where a UI offers it
-        $this->assertCan(true, $this->memberWith('CMS_ACCESS_SomeOtherSection'), 'an editor of another section');
+        # The framework's own helper: a group granted ADMIN through Permission::grant() in
+        # memberWith() reads back with no codes (measured), so that helper is not used here
+        $this->assertCan(true, $this->createMemberWithPermission('ADMIN'), 'an administrator');
+    }
+
+    public function testPagesOnlyEditorCannotManageVideos()
+    {
+        # Any CMS access is not enough: a delete also deletes the video on Bunny
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_CMSMain'), 'a Pages-only editor');
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_SomeOtherSection'), 'an editor of another section');
+    }
+
+    public function testAProjectsRequiredPermissionCodesAreFollowed()
+    {
+        # A project gives the Videos section its own code: holders of that code manage videos,
+        # CMS_ACCESS_LeftAndMain (all sections) still does, and other CMS editors still do not
+        VideoAdmin::config()->set('required_permission_codes', ['CMS_ACCESS_BunnyVideos']);
+        $this->assertCan(true, $this->memberWith('CMS_ACCESS_BunnyVideos'), 'a holder of the project code');
+        $this->assertCan(true, $this->memberWith('CMS_ACCESS_LeftAndMain'), 'a VideoAdmin editor');
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_CMSMain'), 'a Pages-only editor');
+    }
+
+    public function testAllOfSeveralRequiredCodesAreNeeded()
+    {
+        # As LeftAndMain::canView(): with several codes, all of them are required
+        VideoAdmin::config()->set('required_permission_codes', ['CMS_ACCESS_BunnyVideos', 'BUNNY_EXTRA']);
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_BunnyVideos'), 'a holder of one of two codes');
+        $this->assertCan(true, $this->memberWith('CMS_ACCESS_BunnyVideos', 'BUNNY_EXTRA'), 'a holder of both codes');
+    }
+
+    public function testEmptyOrFalseRequiredCodesFallBackToTheClassCode()
+    {
+        # false would open the section to every logged-in member; the records do not follow that
+        foreach ([false, []] as $value) {
+            VideoAdmin::config()->set('required_permission_codes', $value);
+            $label = var_export($value, true);
+            $this->assertCan(true, $this->memberWith('CMS_ACCESS_' . VideoAdmin::class), "the class code with $label");
+            $this->assertCan(false, $this->memberWith('SOME_NON_CMS_PERMISSION'), "a non-CMS member with $label");
+        }
     }
 
     public function testMemberWithoutCmsAccessCannot()
@@ -141,14 +179,29 @@ class BunnyVideoPermissionsTest extends FunctionalTest
     }
 
     /**
-     * createUpload() now asks BunnyVideo::canCreate() rather than repeating the check, so a project
-     * that tightens canCreate() through an extension tightens the upload endpoint with it.
+     * createUpload() follows canCreate(), so since #6 a Pages-only editor is refused (security
+     * tightening: before, any CMS access was enough).
      */
-    public function testCreateUploadFollowsCanCreate()
+    public function testCreateUploadRefusesAPagesOnlyEditor()
     {
-        $this->logInAs($this->memberWith('CMS_ACCESS_LeftAndMain'));
-        BunnyVideoPermissionVeto::$denyCreate = true;
+        $this->logInAs($this->memberWith('CMS_ACCESS_CMSMain'));
+        $field = $this->makeUploadField();
+        MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'never'])));
 
+        try {
+            $field->createUpload();
+            $this->fail('Expected an HTTP 403');
+        } catch (HTTPResponse_Exception $e) {
+            $this->assertSame(403, $e->getResponse()->getStatusCode());
+        }
+        $this->assertCount(0, MockBunnyClient::$history, 'nothing sent to Bunny');
+    }
+
+    /**
+     * A BunnyUploadField in a form on a current controller, with the session's token in the request.
+     */
+    protected function makeUploadField(): BunnyUploadField
+    {
         $request = new HTTPRequest('GET', 'bunnytest/Form/field/BunnyVideoID/createUpload', ['title' => 'Clip.mp4']);
         $request->setSession(new Session([]));
         $this->controller = UploadTestController::create();
@@ -157,6 +210,19 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         $field = BunnyUploadField::create('BunnyVideoID', 'Video');
         Form::create($this->controller, 'Form', FieldList::create($field), FieldList::create());
         $request['SecurityID'] = $field->getForm()->getSecurityToken()->getValue();
+        return $field;
+    }
+
+    /**
+     * createUpload() now asks BunnyVideo::canCreate() rather than repeating the check, so a project
+     * that tightens canCreate() through an extension tightens the upload endpoint with it.
+     */
+    public function testCreateUploadFollowsCanCreate()
+    {
+        $this->logInAs($this->memberWith('CMS_ACCESS_LeftAndMain'));
+        BunnyVideoPermissionVeto::$denyCreate = true;
+
+        $field = $this->makeUploadField();
         MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'never'])));
 
         try {

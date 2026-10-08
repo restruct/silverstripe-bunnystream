@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.1 (unreleased)
+## 1.2.0 (unreleased)
 
 ### Fixed
 
@@ -8,20 +8,22 @@
   ([#6](https://github.com/restruct/silverstripe-bunnystream/issues/6)). `BunnyVideo` had no
   permission methods, so only ADMIN could create, edit or delete a video, while the Video's section
   admits `CMS_ACCESS_LeftAndMain`. `canView()`, `canEdit()`, `canCreate()` and `canDelete()` now
-  require CMS access (`Permission::check('CMS_ACCESS')`: ADMIN or any `CMS_ACCESS_*` code), the
-  check `createUpload()` already made. Each asks extensions first, so a project can narrow them.
-  `createUpload()` now checks `BunnyVideo::canCreate()` instead of repeating the permission check,
-  with the same default result.
-- **Silverstripe 6: a title over 255 characters broke uploads and syncing**
-  ([#4](https://github.com/restruct/silverstripe-bunnystream/issues/4)). `Title` is a
-  `Varchar(255)` and framework 6 validates the length on write. `createUpload()` creates the video
-  on Bunny before it writes the record, so a long file name left an orphaned video on Bunny; and
-  `refreshFromApi()` threw on a long title set in the Bunny dashboard, which the CMS swallows, so the
-  record silently stopped updating. Both now cut the title to 255 characters (multibyte-safe). Bunny
-  keeps the full name. On Silverstripe 5 the database already truncated it silently.
+  require exactly what opening `VideoAdmin` requires: ADMIN or `CMS_ACCESS_LeftAndMain`, or else
+  all of `VideoAdmin.required_permission_codes` (falling back to
+  `CMS_ACCESS_Restruct\BunnyStream\Admin\VideoAdmin` when that config is empty or `false`). A
+  project that changes the section's permission therefore changes the records' too. Each asks
+  extensions first, so a project can change them per method.
 
 ### Security
 
+- **`createUpload()` now requires access to the Video's section, not just any CMS access**
+  ([#6](https://github.com/restruct/silverstripe-bunnystream/issues/6)). It checks
+  `BunnyVideo::canCreate()` instead of `Permission::check('CMS_ACCESS')`. Since 1.1.0 an editor with
+  access to any one CMS section (Pages, say) could register videos; that editor is now refused
+  (403), because the same rule governs editing and deleting the video, and a delete also deletes it
+  on Bunny. **If editors of other sections upload through a `BunnyUploadField` in their forms**,
+  give them the section's permission (by default `CMS_ACCESS_LeftAndMain`, or the code you set in
+  `VideoAdmin.required_permission_codes`), or widen `canCreate()` with an extension.
 - **tus-js-client is no longer loaded from a CDN**
   ([#5](https://github.com/restruct/silverstripe-bunnystream/issues/5)). `BunnyUploadField` loaded
   `tus-js-client@4` from jsDelivr, at a floating major and without subresource integrity, into the

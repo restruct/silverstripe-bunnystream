@@ -46,9 +46,11 @@ class BunnyUploadField extends FormField
         # so an editor who only has access to some other CMS section is not locked out of a
         # field that sits in that section's edit form. 403: the caller is known, just not allowed.
         #
-        # Since issue #6 the check is BunnyVideo::canCreate(), which by default asks the same
-        # 'CMS_ACCESS', so a project that tightens canCreate() through an extension tightens this
-        # endpoint with it instead of the two drifting apart.
+        # Since issue #6 the check is BunnyVideo::canCreate(): by default access to the VideoAdmin
+        # section (CMS_ACCESS_LeftAndMain unless a project changes VideoAdmin's
+        # required_permission_codes), narrower than the 'CMS_ACCESS' above on purpose, as a video
+        # registered here is then managed by the same rule. A project that changes canCreate()
+        # through an extension changes this endpoint with it instead of the two drifting apart.
         //if (!Permission::check('CMS_ACCESS')) {
         if (!BunnyVideo::singleton()->canCreate()) {
             return Controller::curr()->httpError(403, 'Not allowed to upload videos');

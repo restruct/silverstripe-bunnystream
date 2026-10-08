@@ -102,10 +102,10 @@ What happens on upload:
 With a video attached the field shows its thumbnail, title, status and duration, and an
 "Ontkoppelen" button that clears the relation (the video itself is kept).
 
-`createUpload` refuses anyone `BunnyVideo::canCreate()` refuses (403; by default that is anyone
-without CMS access, see [Permissions](#permissions)) and any request without the form's security
+`createUpload` refuses anyone `BunnyVideo::canCreate()` refuses (403; by default anyone without
+access to the "Video's" section, see [Permissions](#permissions)) and any request without the form's security
 token (400); the field's JavaScript sends the token as `SecurityID`. Do not put the field on a public front-end form: visitors and members
-without CMS access are refused, so it cannot work there.
+without access to the "Video's" section are refused, so it cannot work there.
 
 ### Embed a video
 
@@ -150,13 +150,25 @@ The same list is available as `getUsages()`.
 
 ### Permissions
 
-`BunnyVideo::canView()`, `canEdit()`, `canCreate()` and `canDelete()` all require CMS access:
-ADMIN or any `CMS_ACCESS_*` code, the same check the upload field makes. So anyone who can upload a
-video through a field in their section can also manage it, and editors with access to the
-"Video's" section (`CMS_ACCESS_LeftAndMain`) can create, edit and delete videos there. Deleting
-also deletes the video on Bunny (below). To narrow this, add an extension to `BunnyVideo` that
-implements the `can*()` methods (return `false` to refuse, `null` to leave it to the default);
-`createUpload` follows `canCreate()`.
+`BunnyVideo::canView()`, `canEdit()`, `canCreate()` and `canDelete()` all require what opening the
+"Video's" section (`VideoAdmin`) requires: ADMIN or `CMS_ACCESS_LeftAndMain` (access to all CMS
+sections), or else every code in `VideoAdmin`'s `required_permission_codes`. Out of the box that
+is `CMS_ACCESS_LeftAndMain`, so an editor with access to only some sections (Pages, say) can
+neither manage videos nor upload one: deleting a video also deletes it on Bunny (below).
+
+To give the section its own permission, set the code on `VideoAdmin`; the records follow it:
+
+```yaml
+Restruct\BunnyStream\Admin\VideoAdmin:
+  required_permission_codes:
+    - CMS_ACCESS_BunnyVideos
+```
+
+If that config is empty or `false`, the records require `CMS_ACCESS_Restruct\BunnyStream\Admin\VideoAdmin`
+(they do not follow `false`, which would open the section to every logged-in member). To change the
+rule per method, add an extension to `BunnyVideo` that implements the `can*()` methods (return
+`false` to refuse, `true` to allow, `null` to leave it to the default). `createUpload` follows
+`canCreate()`.
 
 ### Deleting
 

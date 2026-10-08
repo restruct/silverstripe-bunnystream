@@ -3,6 +3,7 @@
 namespace Restruct\BunnyStream\Model;
 
 use Psr\Log\LoggerInterface;
+use Restruct\BunnyStream\Admin\VideoAdmin;
 use Restruct\BunnyStream\Api\BunnyStreamClient;
 use SilverStripe\Assets\Image;
 use SilverStripe\Control\Controller;
@@ -87,11 +88,42 @@ class BunnyVideo extends DataObject
 
     # Issue #6: without these the DataObject defaults applied (ADMIN only), while VideoAdmin admits
     # CMS_ACCESS_LeftAndMain, so an editor could open the Videos section but not create, edit or
-    # delete a video. Every method asks for CMS access ('CMS_ACCESS': ADMIN or ANY CMS_ACCESS_*
-    # code), the same check BunnyUploadField::createUpload() made since 1.1.0 (#7) and now makes
-    # through canCreate(): an editor whose section form holds the upload field can already register
-    # videos, so a narrower code here would only lock them out of the records they created.
+    # delete a video. Every method now asks for exactly what opening VideoAdmin asks for (see
+    # canAccessVideoAdmin()), so "can open the section" and "can manage its records" cannot drift
+    # apart, and a project that changes VideoAdmin's required_permission_codes moves both.
+    # Deliberately NOT the generic 'CMS_ACCESS' (any CMS_ACCESS_* code): that let a Pages-only
+    # editor delete videos, and a delete also deletes the video on Bunny (review decision on #6,
+    # 2026-10-08).
+    # BunnyUploadField::createUpload() goes through canCreate(), so it follows the same rule.
     # extendedCan() first, as DataObject does, so a project can tighten (or widen) any of these.
+
+    /**
+     * Whether $member (default: the current member) may open VideoAdmin, mirroring
+     * LeftAndMain::canView() on admin 2 / AdminController::canView() on admin 3: ADMIN or
+     * CMS_ACCESS_LeftAndMain opens every section; otherwise ALL of the section's
+     * required_permission_codes are needed. One deliberate difference: where that config is
+     * empty or false (false would open the section to every logged-in member), the
+     * auto-generated 'CMS_ACCESS_' . VideoAdmin::class code is required instead.
+     */
+    protected function canAccessVideoAdmin($member = null): bool
+    {
+        # Permission::check() also accepts ADMIN (admin_implies_all) and returns false without a member
+        if (Permission::check('CMS_ACCESS_LeftAndMain', 'any', $member)) {
+            return true;
+        }
+        # Config read directly (not getRequiredPermissions()): it lives on LeftAndMain in admin 2 and
+        # on AdminController in admin 3, and its false case means "no check", which we do not want
+        $codes = VideoAdmin::config()->get('required_permission_codes');
+        if (!$codes) {
+            $codes = 'CMS_ACCESS_' . VideoAdmin::class;
+        }
+        foreach ((array) $codes as $code) {
+            if (!Permission::check($code, 'any', $member)) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     public function canView($member = null)
     {
@@ -99,7 +131,7 @@ class BunnyVideo extends DataObject
         if ($extended !== null) {
             return $extended;
         }
-        return Permission::check('CMS_ACCESS', 'any', $member);
+        return $this->canAccessVideoAdmin($member);
     }
 
     public function canEdit($member = null)
@@ -108,17 +140,17 @@ class BunnyVideo extends DataObject
         if ($extended !== null) {
             return $extended;
         }
-        return Permission::check('CMS_ACCESS', 'any', $member);
+        return $this->canAccessVideoAdmin($member);
     }
 
-    # Deleting also deletes the video on Bunny (onBeforeDelete), with the same reach as editing
+    # Deleting also deletes the video on Bunny (onBeforeDelete), hence section access, not any CMS access
     public function canDelete($member = null)
     {
         $extended = $this->extendedCan(__FUNCTION__, $member);
         if ($extended !== null) {
             return $extended;
         }
-        return Permission::check('CMS_ACCESS', 'any', $member);
+        return $this->canAccessVideoAdmin($member);
     }
 
     public function canCreate($member = null, $context = [])
@@ -127,7 +159,7 @@ class BunnyVideo extends DataObject
         if ($extended !== null) {
             return $extended;
         }
-        return Permission::check('CMS_ACCESS', 'any', $member);
+        return $this->canAccessVideoAdmin($member);
     }
 
     // -------------------------------------------------------------------------
