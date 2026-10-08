@@ -21,7 +21,9 @@ use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBHTMLText;
+use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
+use SilverStripe\Security\Security;
 # ValidationException is not imported: it moved from SilverStripe\ORM (framework 5) to
 # SilverStripe\Core\Validation (framework 6), see validationExceptionClass().
 # (The unused SilverStripe\ORM\ArrayList import was dropped for the same reason: framework 6
@@ -104,9 +106,27 @@ class BunnyVideo extends DataObject
      * required_permission_codes are needed. One deliberate difference: where that config is
      * empty or false (false would open the section to every logged-in member), the
      * auto-generated 'CMS_ACCESS_' . VideoAdmin::class code is required instead.
+     * An alternateAccessCheck() on VideoAdmin (typically from an extension) is honoured first, as
+     * there: false refuses everyone, ADMIN included; any other answer leaves it to the codes.
      */
     protected function canAccessVideoAdmin($member = null): bool
     {
+        # Resolve the member as canView() on the admin does, so alternateAccessCheck() gets a Member
+        if (!$member) {
+            $member = Security::getCurrentUser();
+        } elseif (is_numeric($member)) {
+            $member = Member::get()->byID($member);
+        }
+        if (!$member) {
+            return false;
+        }
+        # Both admin majors ask this before CMS_ACCESS_LeftAndMain (admin 2 LeftAndMain::canView(),
+        # admin 3 AdminController::canView()); without it a project that shuts the section this
+        # way would still leave its records editable and deletable elsewhere (e.g. createUpload)
+        $admin = VideoAdmin::singleton();
+        if ($admin->hasMethod('alternateAccessCheck') && $admin->alternateAccessCheck($member) === false) {
+            return false;
+        }
         # Permission::check() also accepts ADMIN (admin_implies_all) and returns false without a member
         if (Permission::check('CMS_ACCESS_LeftAndMain', 'any', $member)) {
             return true;

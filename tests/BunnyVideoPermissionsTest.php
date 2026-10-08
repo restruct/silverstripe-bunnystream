@@ -9,6 +9,7 @@ use Restruct\BunnyStream\Model\BunnyVideo;
 use Restruct\BunnyStream\Tests\Stub\BunnyVideoPermissionVeto;
 use Restruct\BunnyStream\Tests\Stub\MockBunnyClient;
 use Restruct\BunnyStream\Tests\Stub\UploadTestController;
+use Restruct\BunnyStream\Tests\Stub\VideoAdminAccessVeto;
 use Restruct\BunnyStream\Tests\Stub\VideoHolder;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\HTTPResponse_Exception;
@@ -43,6 +44,7 @@ class BunnyVideoPermissionsTest extends FunctionalTest
 
     protected static $required_extensions = [
         BunnyVideo::class => [BunnyVideoPermissionVeto::class],
+        VideoAdmin::class => [VideoAdminAccessVeto::class],
     ];
 
     protected ?UploadTestController $controller = null;
@@ -53,6 +55,7 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         MockBunnyClient::reset();
         BunnyVideoPermissionVeto::$denyCreate = false;
         BunnyVideoPermissionVeto::$deny = [];
+        VideoAdminAccessVeto::$result = null;
         Injector::inst()->load([BunnyStreamClient::class => ['class' => MockBunnyClient::class]]);
     }
 
@@ -64,6 +67,7 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         }
         BunnyVideoPermissionVeto::$denyCreate = false;
         BunnyVideoPermissionVeto::$deny = [];
+        VideoAdminAccessVeto::$result = null;
         MockBunnyClient::reset();
         parent::tearDown();
     }
@@ -297,5 +301,23 @@ class BunnyVideoPermissionsTest extends FunctionalTest
                 $this->assertSame($method !== $vetoed, (bool) $video->$method($member), "$method with $vetoed vetoed");
             }
         }
+    }
+
+    /**
+     * VideoAdmin's alternateAccessCheck() (from an extension) is consulted before anything else when
+     * the section is opened: false shuts the section to everyone, ADMIN included. The records follow
+     * it; true does not widen them, as it does not widen the section.
+     */
+    public function testVideoAdminsAlternateAccessCheckIsHonoured()
+    {
+        VideoAdminAccessVeto::$result = false;
+        $editor = $this->memberWith('CMS_ACCESS_LeftAndMain');
+        $this->assertFalse(VideoAdmin::singleton()->canView($editor), 'control: the section is shut');
+        $this->assertCan(false, $editor, 'a VideoAdmin editor, section vetoed');
+        $this->assertCan(false, $this->createMemberWithPermission('ADMIN'), 'an administrator, section vetoed');
+
+        VideoAdminAccessVeto::$result = true;
+        $this->assertCan(true, $editor, 'a VideoAdmin editor, check passed');
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_CMSMain'), 'a Pages-only editor, check passed');
     }
 }

@@ -174,6 +174,11 @@ rule per method, add an extension to `BunnyVideo` that implements the `can*()` m
 `false` to refuse, `true` to allow, `null` to leave it to the default). `createUpload` follows
 `canCreate()`.
 
+An `alternateAccessCheck($member)` on `VideoAdmin` (from an extension), which the CMS asks before
+anything else when the section is opened, is honoured by the records too: `false` refuses every
+member, ADMIN included; any other answer leaves it to the codes above. It is called on
+`VideoAdmin::singleton()`, outside any CMS request, so it should decide from `$member` alone.
+
 ### Deleting
 
 Deleting a `BunnyVideo` deletes the video on Bunny **first**. If that fails, the local delete is

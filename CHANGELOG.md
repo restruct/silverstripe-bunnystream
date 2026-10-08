@@ -15,6 +15,9 @@
   extensions first, so a project can change them per method. Set the section's own code in YAML as
   a string, not a list: a list is added to the default `CMS_ACCESS_LeftAndMain` and both are then
   required (README, Permissions).
+  `VideoAdmin`'s `alternateAccessCheck()` (from an extension), which the CMS consults first, is
+  honoured too: when it returns `false` for a member, that member can neither open the section nor
+  view, edit, create or delete a video, ADMIN included.
 - `createUpload()` refused a crafted request with an array `title` (`title[]=x`) only by a
   `TypeError` (500). It now answers 400 before anything is sent to Bunny.
 
