@@ -77,6 +77,25 @@ class VideoAdminTest extends FunctionalTest
         $this->assertCount(0, MockBunnyClient::$history, 'a finished video is not re-synced');
     }
 
+    /**
+     * ModelAdmin's CSV import has "Replace data" (EmptyBeforeImport), which runs removeAll() and so
+     * onBeforeDelete() on every record: one click by any section editor would delete every video
+     * on Bunny. VideoAdmin offers no import.
+     */
+    public function testThereIsNoImportForm()
+    {
+        $this->logInWithPermission('CMS_ACCESS_LeftAndMain');
+        $segment = $this->modelSegment();
+
+        $response = $this->get("admin/videos/$segment");
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringNotContainsString('ImportForm', $response->getBody());
+
+        # ModelAdmin::import() refuses the post on this same property, so the action is shut too.
+        # (A direct GET of .../ImportForm is no control: it is not 200 even with the form enabled.)
+        $this->assertFalse(VideoAdmin::singleton()->showImportForm);
+    }
+
     public function testNonCmsUserIsRefused()
     {
         $this->logInWithPermission('SOME_OTHER_PERMISSION');

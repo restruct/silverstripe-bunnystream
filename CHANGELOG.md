@@ -20,6 +20,11 @@
 
 ### Security
 
+- **The Video's section no longer offers ModelAdmin's CSV import.** Its "Replace data" option
+  deletes every record first, and deleting a `BunnyVideo` deletes the video on Bunny, so one import
+  could wipe the whole video library; since #6 any editor of the section, not only ADMIN, passes
+  the delete check. Videos are not importable from CSV anyway (the GUID comes from Bunny).
+  `VideoAdmin::$showImportForm` is now `false`; a subclass can switch it back on.
 - **`createUpload()` now requires access to the Video's section, not just any CMS access**
   ([#6](https://github.com/restruct/silverstripe-bunnystream/issues/6)). It checks
   `BunnyVideo::canCreate()` instead of `Permission::check('CMS_ACCESS')`. Since 1.1.0 an editor with
