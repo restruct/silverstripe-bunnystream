@@ -20,6 +20,20 @@ test('an attached video shows its preview and hides the upload controls', async 
     expect(await f.hidden.inputValue(), 'the relation is in the hidden input').toMatch(/^\d+$/);
 });
 
+test('tus-js-client is served from the module, not from a CDN', async ({ page }) => {
+    // Issue #5: the upload library runs in the CMS with the editor's session, so it is a pinned copy
+    // in the module's exposed client/dist. Any request to jsDelivr fails this spec.
+    const external: string[] = [];
+    page.on('request', (r) => {
+        if (/cdn\.jsdelivr\.net/.test(r.url())) external.push(r.url());
+    });
+    const script = page.waitForResponse((r) => /silverstripe-bunnystream\/client\/dist\/js\/vendor\/tus-js-client\/tus\.min\.js/.test(r.url()));
+    await openHolder(page, 'Upload target');
+    expect((await script).status(), 'vendored tus.min.js').toBe(200);
+    expect(await page.evaluate(() => typeof (window as unknown as { tus?: { Upload?: unknown } }).tus?.Upload), 'window.tus.Upload').toBe('function');
+    expect(external, 'no request to jsDelivr').toEqual([]);
+});
+
 test('"Ontkoppelen" clears the relation; saving keeps it cleared and the video itself stays', async ({ page }) => {
     await openHolder(page, 'Unlink target');
     const f = field(page);

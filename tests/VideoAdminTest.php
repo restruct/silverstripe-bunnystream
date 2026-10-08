@@ -6,6 +6,7 @@ use Restruct\BunnyStream\Admin\VideoAdmin;
 use Restruct\BunnyStream\Api\BunnyStreamClient;
 use Restruct\BunnyStream\Model\BunnyVideo;
 use Restruct\BunnyStream\Tests\Stub\MockBunnyClient;
+use Restruct\BunnyStream\Tests\Stub\VideoHolder;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\FunctionalTest;
 
@@ -18,6 +19,13 @@ class VideoAdminTest extends FunctionalTest
     # Needed even for the config test: FunctionalTest::setUp() logs out, which queries
     # session-manager's LoginSession table when that module is installed (recipe-cms has it).
     protected $usesDatabase = true;
+
+    # The edit form's "Gebruikt door" tab (getCMSFields() -> getUsages()) scans every has_one to
+    # BunnyVideo, which includes this TestOnly stub, so its table must exist. Without declaring it
+    # here the test passed only when an earlier test class in the run had built that table.
+    protected static $extra_dataobjects = [
+        VideoHolder::class,
+    ];
 
     protected function setUp(): void
     {
@@ -75,6 +83,25 @@ class VideoAdminTest extends FunctionalTest
         $this->assertStringContainsString('name="EnforceFullWatch"', $body);
         $this->assertStringContainsString('iframe.mediadelivery.net/embed/', $body);
         $this->assertCount(0, MockBunnyClient::$history, 'a finished video is not re-synced');
+    }
+
+    /**
+     * ModelAdmin's CSV import has "Replace data" (EmptyBeforeImport), which runs removeAll() and so
+     * onBeforeDelete() on every record: one click by any section editor would delete every video
+     * on Bunny. VideoAdmin offers no import.
+     */
+    public function testThereIsNoImportForm()
+    {
+        $this->logInWithPermission('CMS_ACCESS_LeftAndMain');
+        $segment = $this->modelSegment();
+
+        $response = $this->get("admin/videos/$segment");
+        $this->assertSame(200, $response->getStatusCode());
+        $this->assertStringNotContainsString('ImportForm', $response->getBody());
+
+        # ModelAdmin::import() refuses the post on this same property, so the action is shut too.
+        # (A direct GET of .../ImportForm is no control: it is not 200 even with the form enabled.)
+        $this->assertFalse(VideoAdmin::singleton()->showImportForm);
     }
 
     public function testNonCmsUserIsRefused()

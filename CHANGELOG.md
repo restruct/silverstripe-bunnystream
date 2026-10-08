@@ -1,5 +1,49 @@
 # Changelog
 
+## 1.2.0 (2026-10-08)
+
+### Fixed
+
+- **Editors without ADMIN could not manage videos**
+  ([#6](https://github.com/restruct/silverstripe-bunnystream/issues/6)). `BunnyVideo` had no
+  permission methods, so only ADMIN could create, edit or delete a video, while the Video's section
+  admits `CMS_ACCESS_LeftAndMain`. `canView()`, `canEdit()`, `canCreate()` and `canDelete()` now
+  require exactly what opening `VideoAdmin` requires: ADMIN or `CMS_ACCESS_LeftAndMain`, or else
+  all of `VideoAdmin.required_permission_codes` (falling back to
+  `CMS_ACCESS_Restruct\BunnyStream\Admin\VideoAdmin` when that config is empty or `false`). A
+  project that changes the section's permission therefore changes the records' too. Each asks
+  extensions first, so a project can change them per method. Set the section's own code in YAML as
+  a string, not a list: a list is added to the default `CMS_ACCESS_LeftAndMain` and both are then
+  required (README, Permissions).
+  `VideoAdmin`'s `alternateAccessCheck()` (from an extension), which the CMS consults first, is
+  honoured too: when it returns `false` for a member, that member can neither open the section nor
+  view, edit, create or delete a video, ADMIN included.
+- `createUpload()` refused a crafted request with an array `title` (`title[]=x`) only by a
+  `TypeError` (500). It now answers 400 before anything is sent to Bunny.
+
+### Security
+
+- **The Video's section no longer offers ModelAdmin's CSV import.** Its "Replace data" option
+  deletes every record first, and deleting a `BunnyVideo` deletes the video on Bunny, so one import
+  could wipe the whole video library; since #6 any editor of the section, not only ADMIN, passes
+  the delete check. Videos are not importable from CSV anyway (the GUID comes from Bunny).
+  `VideoAdmin::$showImportForm` is now `false`; a subclass can switch it back on.
+- **`createUpload()` now requires access to the Video's section, not just any CMS access**
+  ([#6](https://github.com/restruct/silverstripe-bunnystream/issues/6)). It checks
+  `BunnyVideo::canCreate()` instead of `Permission::check('CMS_ACCESS')`. Since 1.1.0 an editor with
+  access to any one CMS section (Pages, say) could register videos; that editor is now refused
+  (403), because the same rule governs editing and deleting the video, and a delete also deletes it
+  on Bunny. **If editors of other sections upload through a `BunnyUploadField` in their forms**,
+  give them the section's permission (by default `CMS_ACCESS_LeftAndMain`, or the code you set in
+  `VideoAdmin.required_permission_codes`), or widen `canCreate()` with an extension.
+- **tus-js-client is no longer loaded from a CDN**
+  ([#5](https://github.com/restruct/silverstripe-bunnystream/issues/5)). `BunnyUploadField` loaded
+  `tus-js-client@4` from jsDelivr, at a floating major and without subresource integrity, into the
+  CMS with the editor's session. It now ships an unmodified, pinned copy (4.3.1, MIT, licence
+  included) in `client/dist/js/vendor/tus-js-client/`, exposed like the field's own script. The CMS
+  no longer needs to reach `cdn.jsdelivr.net`. How to verify or update the copy: the README next to
+  it.
+
 ## 1.1.0 (2026-09-25)
 
 ### Security

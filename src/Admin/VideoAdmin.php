@@ -23,4 +23,11 @@ class VideoAdmin extends ModelAdmin
     private static $required_permission_codes = [
         'CMS_ACCESS_LeftAndMain',
     ];
+
+    # No CSV import. Its "Replace data" option (EmptyBeforeImport) calls removeAll() on the list,
+    # which runs BunnyVideo::onBeforeDelete() per record and so deletes every video on Bunny, and
+    # since #6 every section editor (not only ADMIN) may delete. A BunnyVideo also cannot be made
+    # from CSV: its GUID comes from Bunny when the upload is created. Public property (not config)
+    # on ModelAdmin in admin 2 and admin 3 alike.
+    public $showImportForm = false;
 }

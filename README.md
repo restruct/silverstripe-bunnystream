@@ -96,16 +96,16 @@ What happens on upload:
 1. The field calls its `createUpload` action, which creates the video on Bunny, writes a
    `BunnyVideo` record (status "created") and returns short-lived TUS credentials.
 2. The browser uploads the file directly to Bunny with [tus-js-client](https://github.com/tus/tus-js-client)
-   (loaded from jsDelivr), showing progress.
+   (a pinned copy shipped in the module's `client/dist`, no CDN), showing progress.
 3. When it finishes, the new record's ID is put in the field, so saving the form sets the relation.
 
 With a video attached the field shows its thumbnail, title, status and duration, and an
 "Ontkoppelen" button that clears the relation (the video itself is kept).
 
-`createUpload` refuses anyone without CMS access (403: ADMIN or any `CMS_ACCESS_*` code is
-needed) and any request without the form's security token (400); the field's JavaScript sends the
-token as `SecurityID`. Do not put the field on a public front-end form: visitors and members
-without CMS access are refused, so it cannot work there.
+`createUpload` refuses anyone `BunnyVideo::canCreate()` refuses (403; by default anyone without
+access to the "Video's" section, see [Permissions](#permissions)) and any request without the form's security
+token (400); the field's JavaScript sends the token as `SecurityID`. Do not put the field on a public front-end form: visitors and members
+without access to the "Video's" section are refused, so it cannot work there.
 
 ### Embed a video
 
@@ -147,6 +147,37 @@ Bunny reports the video finished.
 A video's edit form has a "Gebruikt door" tab listing every record that points at it through a
 `has_one`, found by scanning the data model, so the module needs no configuration for your classes.
 The same list is available as `getUsages()`.
+
+### Permissions
+
+`BunnyVideo::canView()`, `canEdit()`, `canCreate()` and `canDelete()` all require what opening the
+"Video's" section (`VideoAdmin`) requires: ADMIN or `CMS_ACCESS_LeftAndMain` (access to all CMS
+sections), or else every code in `VideoAdmin`'s `required_permission_codes`. Out of the box that
+is `CMS_ACCESS_LeftAndMain`, so an editor with access to only some sections (Pages, say) can
+neither manage videos nor upload one: deleting a video also deletes it on Bunny (below).
+
+To give the section its own permission, set the code on `VideoAdmin`; the records follow it:
+
+```yaml
+Restruct\BunnyStream\Admin\VideoAdmin:
+  required_permission_codes: CMS_ACCESS_BunnyVideos
+```
+
+Use a single string, as above. A YAML **list** is *added* to the module's default
+(`CMS_ACCESS_LeftAndMain`) rather than replacing it, so both codes would then be required and
+holders of only your code would be refused. To require several codes of your own, set the list from
+PHP instead, which replaces: `Config::modify()->set(VideoAdmin::class, 'required_permission_codes', [...])` in `app/_config.php`.
+
+If that config is empty or `false`, the records require `CMS_ACCESS_Restruct\BunnyStream\Admin\VideoAdmin`
+(they do not follow `false`, which would open the section to every logged-in member). To change the
+rule per method, add an extension to `BunnyVideo` that implements the `can*()` methods (return
+`false` to refuse, `true` to allow, `null` to leave it to the default). `createUpload` follows
+`canCreate()`.
+
+An `alternateAccessCheck($member)` on `VideoAdmin` (from an extension), which the CMS asks before
+anything else when the section is opened, is honoured by the records too: `false` refuses every
+member, ADMIN included; any other answer leaves it to the codes above. It is called on
+`VideoAdmin::singleton()`, outside any CMS request, so it should decide from `$member` alone.
 
 ### Deleting
 

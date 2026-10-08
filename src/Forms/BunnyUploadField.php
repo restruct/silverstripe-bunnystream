@@ -45,7 +45,14 @@ class BunnyUploadField extends FormField
         # catch-all code (ADMIN or ANY CMS_ACCESS_* code, same code path on framework 5 and 6),
         # so an editor who only has access to some other CMS section is not locked out of a
         # field that sits in that section's edit form. 403: the caller is known, just not allowed.
-        if (!Permission::check('CMS_ACCESS')) {
+        #
+        # Since issue #6 the check is BunnyVideo::canCreate(): by default access to the VideoAdmin
+        # section (CMS_ACCESS_LeftAndMain unless a project changes VideoAdmin's
+        # required_permission_codes), narrower than the 'CMS_ACCESS' above on purpose, as a video
+        # registered here is then managed by the same rule. A project that changes canCreate()
+        # through an extension changes this endpoint with it instead of the two drifting apart.
+        //if (!Permission::check('CMS_ACCESS')) {
+        if (!BunnyVideo::singleton()->canCreate()) {
             return Controller::curr()->httpError(403, 'Not allowed to upload videos');
         }
 
@@ -61,7 +68,15 @@ class BunnyUploadField extends FormField
             return Controller::curr()->httpError(400, 'Invalid or missing security token, reload the page and try again');
         }
 
-        $title = $request->getVar('title') ?: 'Untitled';
+        # The title is the file name the field's JS sends. A crafted request can send an array
+        # (title[]=x), which BunnyStreamClient::createVideo(string) would reject as a TypeError, a
+        # 500; refuse it as the bad request it is, before anything is sent to Bunny.
+        $title = $request->getVar('title');
+        if ($title !== null && !is_string($title)) {
+            return Controller::curr()->httpError(400, 'Invalid title');
+        }
+        //$title = $request->getVar('title') ?: 'Untitled';
+        $title = $title ?: 'Untitled';
 
         $client = BunnyStreamClient::create();
 
@@ -79,7 +94,12 @@ class BunnyUploadField extends FormField
         # Step 3: Create local BunnyVideo record
         $BunnyVideo = BunnyVideo::create();
         $BunnyVideo->VideoGuid = $videoGuid;
-        $BunnyVideo->Title = $title;
+        # Issue #4: Title is Varchar(255) and the video already exists on Bunny at this point, so a
+        # longer file name must not fail the write (framework 6 validates the length and throws,
+        # leaving the remote video orphaned). Cut to 255 characters with mb_substr, as both the
+        # validator and the column count characters, not bytes. Bunny keeps the full name.
+        //$BunnyVideo->Title = $title;
+        $BunnyVideo->Title = mb_substr($title, 0, 255);
         $BunnyVideo->Status = BunnyStreamClient::STATUS_CREATED;
         $BunnyVideo->write();
 
@@ -152,7 +172,12 @@ EXISTING;
         # Behaviour scripts via the Requirements API — never inline <script> tags
         # in Field() output (those break SS admin's script ordering on initial load
         # AND don't execute on React-driven AJAX form swaps).
-        Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
+        # tus-js-client runs in the CMS with the editor's session, so it is a pinned, unmodified copy
+        # (4.3.1) in the module's own exposed client/dist rather than a CDN URL at a floating major:
+        # a new 4.x publish or a tampered CDN response can no longer change what runs here, and the
+        # CMS needs no third-party origin (issue #5). Update procedure: the README next to the file.
+        //Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
+        Requirements::javascript('restruct/silverstripe-bunnystream:client/dist/js/vendor/tus-js-client/tus.min.js');
         Requirements::javascript('restruct/silverstripe-bunnystream:client/dist/js/bunny-upload-field.js');
 
         # Render-time config travels via data-* attributes; the static JS reads them

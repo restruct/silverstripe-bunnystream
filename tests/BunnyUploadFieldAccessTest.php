@@ -140,19 +140,29 @@ class BunnyUploadFieldAccessTest extends SapphireTest
         $this->assertCount(0, MockBunnyClient::$history, 'nothing sent to Bunny');
     }
 
-    public function testMemberWithAccessToSomeOtherCmsSectionIsAllowed()
+    public function testMemberWithAccessToSomeOtherCmsSectionIsRefused()
     {
-        # Only one specific section's code (not LeftAndMain, not VideoAdmin, not ADMIN): the field
+        # Changed on purpose with issue #6 (review decision, 2026-10-08): createUpload() follows
+        # BunnyVideo::canCreate(), which needs access to the VideoAdmin section, no longer any CMS
+        # access. Before, this test asserted that an editor of one other section could upload;
+        # its original comment and body are kept below.
+        # (1.1.0:) Only one specific section's code (not LeftAndMain, not VideoAdmin, not ADMIN): the field
         # can sit in that section's edit form, so its editors must be able to upload.
+        //$this->logInWithPermission('CMS_ACCESS_SomeOtherSection');
+        //MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'section-guid'])));
+        //
+        //$response = $this->makeField()->createUpload();
+        //
+        //$this->assertSame(200, $response->getStatusCode());
+        //$data = json_decode($response->getBody(), true);
+        //$this->assertSame('section-guid', $data['videoGuid']);
+        //$this->assertSame(1, BunnyVideo::get()->count());
         $this->logInWithPermission('CMS_ACCESS_SomeOtherSection');
         MockBunnyClient::queue(new Response(200, [], json_encode(['guid' => 'section-guid'])));
 
-        $response = $this->makeField()->createUpload();
-
-        $this->assertSame(200, $response->getStatusCode());
-        $data = json_decode($response->getBody(), true);
-        $this->assertSame('section-guid', $data['videoGuid']);
-        $this->assertSame(1, BunnyVideo::get()->count());
+        $this->assertSame(403, $this->statusOf($this->makeField()));
+        $this->assertCount(0, MockBunnyClient::$history, 'nothing sent to Bunny');
+        $this->assertSame(0, BunnyVideo::get()->count());
     }
 
     public function testCmsUserWithValidTokenIsAllowed()
@@ -183,5 +193,20 @@ class BunnyUploadFieldAccessTest extends SapphireTest
         } finally {
             SecurityToken::enable();
         }
+    }
+
+    /**
+     * A crafted title[]=x reaches createVideo(string) as an array, a TypeError (500). It is refused
+     * as a bad request instead, before anything is sent to Bunny.
+     */
+    public function testAnArrayTitleIsRefused()
+    {
+        $this->logInWithPermission('CMS_ACCESS_LeftAndMain');
+        $field = $this->makeField();
+        $field->getForm()->getController()->getRequest()->offsetSet('title', ['x']);
+
+        $this->assertSame(400, $this->statusOf($field));
+        $this->assertCount(0, MockBunnyClient::$history, 'nothing sent to Bunny');
+        $this->assertSame(0, BunnyVideo::get()->count());
     }
 }

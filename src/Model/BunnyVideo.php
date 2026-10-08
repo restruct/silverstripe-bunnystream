@@ -3,6 +3,7 @@
 namespace Restruct\BunnyStream\Model;
 
 use Psr\Log\LoggerInterface;
+use Restruct\BunnyStream\Admin\VideoAdmin;
 use Restruct\BunnyStream\Api\BunnyStreamClient;
 use SilverStripe\Assets\Image;
 use SilverStripe\Control\Controller;
@@ -20,6 +21,9 @@ use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBHTMLText;
+use SilverStripe\Security\Member;
+use SilverStripe\Security\Permission;
+use SilverStripe\Security\Security;
 # ValidationException is not imported: it moved from SilverStripe\ORM (framework 5) to
 # SilverStripe\Core\Validation (framework 6), see validationExceptionClass().
 # (The unused SilverStripe\ORM\ArrayList import was dropped for the same reason: framework 6
@@ -79,6 +83,104 @@ class BunnyVideo extends DataObject
         'Title',
         'VideoGuid',
     ];
+
+    // -------------------------------------------------------------------------
+    // Permissions
+    // -------------------------------------------------------------------------
+
+    # Issue #6: without these the DataObject defaults applied (ADMIN only), while VideoAdmin admits
+    # CMS_ACCESS_LeftAndMain, so an editor could open the Videos section but not create, edit or
+    # delete a video. Every method now asks for exactly what opening VideoAdmin asks for (see
+    # canAccessVideoAdmin()), so "can open the section" and "can manage its records" cannot drift
+    # apart, and a project that changes VideoAdmin's required_permission_codes moves both.
+    # Deliberately NOT the generic 'CMS_ACCESS' (any CMS_ACCESS_* code): that let a Pages-only
+    # editor delete videos, and a delete also deletes the video on Bunny (review decision on #6,
+    # 2026-10-08).
+    # BunnyUploadField::createUpload() goes through canCreate(), so it follows the same rule.
+    # extendedCan() first, as DataObject does, so a project can tighten (or widen) any of these.
+
+    /**
+     * Whether $member (default: the current member) may open VideoAdmin, mirroring
+     * LeftAndMain::canView() on admin 2 / AdminController::canView() on admin 3: ADMIN or
+     * CMS_ACCESS_LeftAndMain opens every section; otherwise ALL of the section's
+     * required_permission_codes are needed. One deliberate difference: where that config is
+     * empty or false (false would open the section to every logged-in member), the
+     * auto-generated 'CMS_ACCESS_' . VideoAdmin::class code is required instead.
+     * An alternateAccessCheck() on VideoAdmin (typically from an extension) is honoured first, as
+     * there: false refuses everyone, ADMIN included; any other answer leaves it to the codes.
+     */
+    protected function canAccessVideoAdmin($member = null): bool
+    {
+        # Resolve the member as canView() on the admin does, so alternateAccessCheck() gets a Member
+        if (!$member) {
+            $member = Security::getCurrentUser();
+        } elseif (is_numeric($member)) {
+            $member = Member::get()->byID($member);
+        }
+        if (!$member) {
+            return false;
+        }
+        # Both admin majors ask this before CMS_ACCESS_LeftAndMain (admin 2 LeftAndMain::canView(),
+        # admin 3 AdminController::canView()); without it a project that shuts the section this
+        # way would still leave its records editable and deletable elsewhere (e.g. createUpload)
+        $admin = VideoAdmin::singleton();
+        if ($admin->hasMethod('alternateAccessCheck') && $admin->alternateAccessCheck($member) === false) {
+            return false;
+        }
+        # Permission::check() also accepts ADMIN (admin_implies_all) and returns false without a member
+        if (Permission::check('CMS_ACCESS_LeftAndMain', 'any', $member)) {
+            return true;
+        }
+        # Config read directly (not getRequiredPermissions()): it lives on LeftAndMain in admin 2 and
+        # on AdminController in admin 3, and its false case means "no check", which we do not want
+        $codes = VideoAdmin::config()->get('required_permission_codes');
+        if (!$codes) {
+            $codes = 'CMS_ACCESS_' . VideoAdmin::class;
+        }
+        foreach ((array) $codes as $code) {
+            if (!Permission::check($code, 'any', $member)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    public function canView($member = null)
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return $this->canAccessVideoAdmin($member);
+    }
+
+    public function canEdit($member = null)
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return $this->canAccessVideoAdmin($member);
+    }
+
+    # Deleting also deletes the video on Bunny (onBeforeDelete), hence section access, not any CMS access
+    public function canDelete($member = null)
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return $this->canAccessVideoAdmin($member);
+    }
+
+    public function canCreate($member = null, $context = [])
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member, $context);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return $this->canAccessVideoAdmin($member);
+    }
 
     // -------------------------------------------------------------------------
     // Status / formatting helpers
@@ -329,7 +431,11 @@ class BunnyVideo extends DataObject
         $client = BunnyStreamClient::create();
         $data = $client->getVideo($this->VideoGuid);
 
-        $this->Title = $data->title ?? $this->Title;
+        # Issue #4: a title set in the Bunny dashboard may exceed the Varchar(255) column; on
+        # framework 6 the write would then throw, and getCMSFields() swallows sync errors, so the
+        # record would silently stop updating. Cut to 255 characters (multibyte-safe).
+        //$this->Title = $data->title ?? $this->Title;
+        $this->Title = isset($data->title) ? mb_substr((string) $data->title, 0, 255) : $this->Title;
         $this->Status = $data->status ?? $this->Status;
         $this->Duration = $data->length ?? $this->Duration;
         $this->Width = $data->width ?? $this->Width;
