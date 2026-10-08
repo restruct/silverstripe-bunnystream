@@ -20,6 +20,7 @@ use SilverStripe\Forms\TextareaField;
 use SilverStripe\Forms\TextField;
 use SilverStripe\ORM\DataObject;
 use SilverStripe\ORM\FieldType\DBHTMLText;
+use SilverStripe\Security\Permission;
 # ValidationException is not imported: it moved from SilverStripe\ORM (framework 5) to
 # SilverStripe\Core\Validation (framework 6), see validationExceptionClass().
 # (The unused SilverStripe\ORM\ArrayList import was dropped for the same reason: framework 6
@@ -79,6 +80,55 @@ class BunnyVideo extends DataObject
         'Title',
         'VideoGuid',
     ];
+
+    // -------------------------------------------------------------------------
+    // Permissions
+    // -------------------------------------------------------------------------
+
+    # Issue #6: without these the DataObject defaults applied (ADMIN only), while VideoAdmin admits
+    # CMS_ACCESS_LeftAndMain, so an editor could open the Videos section but not create, edit or
+    # delete a video. Every method asks for CMS access ('CMS_ACCESS': ADMIN or ANY CMS_ACCESS_*
+    # code), the same check BunnyUploadField::createUpload() made since 1.1.0 (#7) and now makes
+    # through canCreate(): an editor whose section form holds the upload field can already register
+    # videos, so a narrower code here would only lock them out of the records they created.
+    # extendedCan() first, as DataObject does, so a project can tighten (or widen) any of these.
+
+    public function canView($member = null)
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return Permission::check('CMS_ACCESS', 'any', $member);
+    }
+
+    public function canEdit($member = null)
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return Permission::check('CMS_ACCESS', 'any', $member);
+    }
+
+    # Deleting also deletes the video on Bunny (onBeforeDelete), with the same reach as editing
+    public function canDelete($member = null)
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return Permission::check('CMS_ACCESS', 'any', $member);
+    }
+
+    public function canCreate($member = null, $context = [])
+    {
+        $extended = $this->extendedCan(__FUNCTION__, $member, $context);
+        if ($extended !== null) {
+            return $extended;
+        }
+        return Permission::check('CMS_ACCESS', 'any', $member);
+    }
 
     // -------------------------------------------------------------------------
     // Status / formatting helpers

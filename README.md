@@ -102,9 +102,9 @@ What happens on upload:
 With a video attached the field shows its thumbnail, title, status and duration, and an
 "Ontkoppelen" button that clears the relation (the video itself is kept).
 
-`createUpload` refuses anyone without CMS access (403: ADMIN or any `CMS_ACCESS_*` code is
-needed) and any request without the form's security token (400); the field's JavaScript sends the
-token as `SecurityID`. Do not put the field on a public front-end form: visitors and members
+`createUpload` refuses anyone `BunnyVideo::canCreate()` refuses (403; by default that is anyone
+without CMS access, see [Permissions](#permissions)) and any request without the form's security
+token (400); the field's JavaScript sends the token as `SecurityID`. Do not put the field on a public front-end form: visitors and members
 without CMS access are refused, so it cannot work there.
 
 ### Embed a video
@@ -147,6 +147,16 @@ Bunny reports the video finished.
 A video's edit form has a "Gebruikt door" tab listing every record that points at it through a
 `has_one`, found by scanning the data model, so the module needs no configuration for your classes.
 The same list is available as `getUsages()`.
+
+### Permissions
+
+`BunnyVideo::canView()`, `canEdit()`, `canCreate()` and `canDelete()` all require CMS access:
+ADMIN or any `CMS_ACCESS_*` code, the same check the upload field makes. So anyone who can upload a
+video through a field in their section can also manage it, and editors with access to the
+"Video's" section (`CMS_ACCESS_LeftAndMain`) can create, edit and delete videos there. Deleting
+also deletes the video on Bunny (below). To narrow this, add an extension to `BunnyVideo` that
+implements the `can*()` methods (return `false` to refuse, `null` to leave it to the default);
+`createUpload` follows `canCreate()`.
 
 ### Deleting
 

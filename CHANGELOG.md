@@ -4,6 +4,14 @@
 
 ### Fixed
 
+- **Editors without ADMIN could not manage videos**
+  ([#6](https://github.com/restruct/silverstripe-bunnystream/issues/6)). `BunnyVideo` had no
+  permission methods, so only ADMIN could create, edit or delete a video, while the Video's section
+  admits `CMS_ACCESS_LeftAndMain`. `canView()`, `canEdit()`, `canCreate()` and `canDelete()` now
+  require CMS access (`Permission::check('CMS_ACCESS')`: ADMIN or any `CMS_ACCESS_*` code), the
+  check `createUpload()` already made. Each asks extensions first, so a project can narrow them.
+  `createUpload()` now checks `BunnyVideo::canCreate()` instead of repeating the permission check,
+  with the same default result.
 - **Silverstripe 6: a title over 255 characters broke uploads and syncing**
   ([#4](https://github.com/restruct/silverstripe-bunnystream/issues/4)). `Title` is a
   `Varchar(255)` and framework 6 validates the length on write. `createUpload()` creates the video
