@@ -171,6 +171,10 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         VideoAdmin::config()->set('required_permission_codes', ['CMS_ACCESS_BunnyVideos', 'BUNNY_EXTRA']);
         $this->assertCan(false, $this->memberWith('CMS_ACCESS_BunnyVideos'), 'a holder of one of two codes');
         $this->assertCan(true, $this->memberWith('CMS_ACCESS_BunnyVideos', 'BUNNY_EXTRA'), 'a holder of both codes');
+        # ...except that CMS_ACCESS_LeftAndMain (all sections) admits regardless, as it does for the
+        # section. BUNNY_EXTRA is not a CMS_ACCESS_* code, so Permission::check() does not imply it
+        # from CMS_ACCESS_LeftAndMain: only the explicit shortcut lets this member in.
+        $this->assertCan(true, $this->memberWith('CMS_ACCESS_LeftAndMain'), 'an all-sections editor');
     }
 
     public function testEmptyOrFalseRequiredCodesFallBackToTheClassCode()
