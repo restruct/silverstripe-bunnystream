@@ -6,6 +6,7 @@ use Restruct\BunnyStream\Admin\VideoAdmin;
 use Restruct\BunnyStream\Api\BunnyStreamClient;
 use Restruct\BunnyStream\Model\BunnyVideo;
 use Restruct\BunnyStream\Tests\Stub\MockBunnyClient;
+use Restruct\BunnyStream\Tests\Stub\VideoHolder;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\FunctionalTest;
 
@@ -18,6 +19,13 @@ class VideoAdminTest extends FunctionalTest
     # Needed even for the config test: FunctionalTest::setUp() logs out, which queries
     # session-manager's LoginSession table when that module is installed (recipe-cms has it).
     protected $usesDatabase = true;
+
+    # The edit form's "Gebruikt door" tab (getCMSFields() -> getUsages()) scans every has_one to
+    # BunnyVideo, which includes this TestOnly stub, so its table must exist. Without declaring it
+    # here the test passed only when an earlier test class in the run had built that table.
+    protected static $extra_dataobjects = [
+        VideoHolder::class,
+    ];
 
     protected function setUp(): void
     {
