@@ -96,7 +96,7 @@ What happens on upload:
 1. The field calls its `createUpload` action, which creates the video on Bunny, writes a
    `BunnyVideo` record (status "created") and returns short-lived TUS credentials.
 2. The browser uploads the file directly to Bunny with [tus-js-client](https://github.com/tus/tus-js-client)
-   (loaded from jsDelivr), showing progress.
+   (a pinned copy shipped in the module's `client/dist`, no CDN), showing progress.
 3. When it finishes, the new record's ID is put in the field, so saving the form sets the relation.
 
 With a video attached the field shows its thumbnail, title, status and duration, and an

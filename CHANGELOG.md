@@ -12,6 +12,16 @@
   record silently stopped updating. Both now cut the title to 255 characters (multibyte-safe). Bunny
   keeps the full name. On Silverstripe 5 the database already truncated it silently.
 
+### Security
+
+- **tus-js-client is no longer loaded from a CDN**
+  ([#5](https://github.com/restruct/silverstripe-bunnystream/issues/5)). `BunnyUploadField` loaded
+  `tus-js-client@4` from jsDelivr, at a floating major and without subresource integrity, into the
+  CMS with the editor's session. It now ships an unmodified, pinned copy (4.3.1, MIT, licence
+  included) in `client/dist/js/vendor/tus-js-client/`, exposed like the field's own script. The CMS
+  no longer needs to reach `cdn.jsdelivr.net`. How to verify or update the copy: the README next to
+  it.
+
 ## 1.1.0 (2026-09-25)
 
 ### Security

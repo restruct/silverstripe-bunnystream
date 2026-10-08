@@ -157,7 +157,12 @@ EXISTING;
         # Behaviour scripts via the Requirements API — never inline <script> tags
         # in Field() output (those break SS admin's script ordering on initial load
         # AND don't execute on React-driven AJAX form swaps).
-        Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
+        # tus-js-client runs in the CMS with the editor's session, so it is a pinned, unmodified copy
+        # (4.3.1) in the module's own exposed client/dist rather than a CDN URL at a floating major:
+        # a new 4.x publish or a tampered CDN response can no longer change what runs here, and the
+        # CMS needs no third-party origin (issue #5). Update procedure: the README next to the file.
+        //Requirements::javascript('https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js');
+        Requirements::javascript('restruct/silverstripe-bunnystream:client/dist/js/vendor/tus-js-client/tus.min.js');
         Requirements::javascript('restruct/silverstripe-bunnystream:client/dist/js/bunny-upload-field.js');
 
         # Render-time config travels via data-* attributes; the static JS reads them

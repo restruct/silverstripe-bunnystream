@@ -198,4 +198,19 @@ class BunnyUploadFieldTest extends SapphireTest
         $sent = json_decode((string) MockBunnyClient::$history[0]['request']->getBody(), true);
         $this->assertSame(['title' => $long], $sent);
     }
+
+    /**
+     * Issue #5: tus-js-client runs in the CMS with the editor's session, so it is served from the
+     * module's own client/dist (a pinned, vendored copy), not from a CDN at a floating version.
+     */
+    public function testLoadsTusJsClientFromTheModuleNotACdn()
+    {
+        $this->makeField()->Field();
+
+        $scripts = array_keys(Requirements::backend()->getJavascript());
+        $tus = array_values(array_filter($scripts, fn($s) => str_contains($s, 'tus-js-client')));
+        $this->assertCount(1, $tus, 'tus-js-client is registered once');
+        $this->assertStringNotContainsString('://', $tus[0], 'not loaded from another origin');
+        $this->assertStringContainsString('silverstripe-bunnystream/client/dist/js/vendor/tus-js-client/', $tus[0]);
+    }
 }
