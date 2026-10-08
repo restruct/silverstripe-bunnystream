@@ -13,6 +13,7 @@ use Restruct\BunnyStream\Tests\Stub\VideoHolder;
 use SilverStripe\Control\HTTPRequest;
 use SilverStripe\Control\HTTPResponse_Exception;
 use SilverStripe\Control\Session;
+use SilverStripe\Core\Config\Config;
 use SilverStripe\Core\Injector\Injector;
 use SilverStripe\Dev\FunctionalTest;
 use SilverStripe\Forms\FieldList;
@@ -21,6 +22,7 @@ use Restruct\BunnyStream\Admin\VideoAdmin;
 use SilverStripe\Security\Group;
 use SilverStripe\Security\Member;
 use SilverStripe\Security\Permission;
+use Symfony\Component\Yaml\Yaml;
 
 /**
  * Issue #6: BunnyVideo had no permission methods, so the DataObject defaults (ADMIN only) applied,
@@ -121,6 +123,44 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         $this->assertCan(true, $this->memberWith('CMS_ACCESS_BunnyVideos'), 'a holder of the project code');
         $this->assertCan(true, $this->memberWith('CMS_ACCESS_LeftAndMain'), 'a VideoAdmin editor');
         $this->assertCan(false, $this->memberWith('CMS_ACCESS_CMSMain'), 'a Pages-only editor');
+    }
+
+    /**
+     * The README's Permissions example, applied the way a project's YAML file is: merged over the
+     * module's default, not set over it (config()->set() above replaces, so it cannot catch this).
+     */
+    public function testTheReadmesYamlExampleGivesTheSectionItsOwnCode()
+    {
+        $readme = file_get_contents(dirname(__DIR__) . '/README.md');
+        preg_match_all('/```yaml\n(.*?)```/s', $readme, $blocks);
+        $example = null;
+        foreach ($blocks[1] as $block) {
+            if (str_contains($block, 'required_permission_codes')) {
+                $example = Yaml::parse($block);
+            }
+        }
+        $this->assertNotNull($example, 'the README has a required_permission_codes example');
+
+        # A YAML fragment merges into the class's config like this (Priority::mergeArray), so a
+        # list is appended to the default ['CMS_ACCESS_LeftAndMain'] while a string replaces it
+        Config::modify()->merge(VideoAdmin::class, null, $example[VideoAdmin::class]);
+
+        $this->assertCan(true, $this->memberWith('CMS_ACCESS_BunnyVideos'), 'a holder of the README code');
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_CMSMain'), 'a Pages-only editor');
+    }
+
+    /**
+     * Why the README uses a string: a list in a project's YAML is ADDED to the module's default, so
+     * both codes are then required and a holder of only the new one is refused (fails closed).
+     */
+    public function testAYamlListIsAddedToTheDefaultCode()
+    {
+        Config::modify()->merge(VideoAdmin::class, null, ['required_permission_codes' => ['CMS_ACCESS_BunnyVideos']]);
+        $this->assertSame(
+            ['CMS_ACCESS_LeftAndMain', 'CMS_ACCESS_BunnyVideos'],
+            VideoAdmin::config()->get('required_permission_codes')
+        );
+        $this->assertCan(false, $this->memberWith('CMS_ACCESS_BunnyVideos'), 'a holder of only the listed code');
     }
 
     public function testAllOfSeveralRequiredCodesAreNeeded()

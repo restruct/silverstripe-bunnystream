@@ -160,9 +160,13 @@ To give the section its own permission, set the code on `VideoAdmin`; the record
 
 ```yaml
 Restruct\BunnyStream\Admin\VideoAdmin:
-  required_permission_codes:
-    - CMS_ACCESS_BunnyVideos
+  required_permission_codes: CMS_ACCESS_BunnyVideos
 ```
+
+Use a single string, as above. A YAML **list** is *added* to the module's default
+(`CMS_ACCESS_LeftAndMain`) rather than replacing it, so both codes would then be required and
+holders of only your code would be refused. To require several codes of your own, set the list from
+PHP instead, which replaces: `Config::modify()->set(VideoAdmin::class, 'required_permission_codes', [...])` in `app/_config.php`.
 
 If that config is empty or `false`, the records require `CMS_ACCESS_Restruct\BunnyStream\Admin\VideoAdmin`
 (they do not follow `false`, which would open the section to every logged-in member). To change the
