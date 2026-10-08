@@ -52,6 +52,7 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         parent::setUp();
         MockBunnyClient::reset();
         BunnyVideoPermissionVeto::$denyCreate = false;
+        BunnyVideoPermissionVeto::$deny = [];
         Injector::inst()->load([BunnyStreamClient::class => ['class' => MockBunnyClient::class]]);
     }
 
@@ -62,6 +63,7 @@ class BunnyVideoPermissionsTest extends FunctionalTest
             $this->controller = null;
         }
         BunnyVideoPermissionVeto::$denyCreate = false;
+        BunnyVideoPermissionVeto::$deny = [];
         MockBunnyClient::reset();
         parent::tearDown();
     }
@@ -273,5 +275,23 @@ class BunnyVideoPermissionsTest extends FunctionalTest
         }
         $this->assertCount(0, MockBunnyClient::$history, 'nothing sent to Bunny');
         $this->assertSame(0, BunnyVideo::get()->count());
+    }
+
+    /**
+     * Each permission method asks extensions first: vetoing one method refuses exactly that one to
+     * a member who would otherwise be allowed, and leaves the others alone.
+     */
+    public function testAnExtensionCanVetoEachMethod()
+    {
+        $member = $this->memberWith('CMS_ACCESS_LeftAndMain');
+        $video = BunnyVideo::create(['VideoGuid' => 'g-1', 'Title' => 'Clip']);
+        $video->write();
+        $methods = ['canView', 'canEdit', 'canDelete', 'canCreate'];
+        foreach ($methods as $vetoed) {
+            BunnyVideoPermissionVeto::$deny = [$vetoed];
+            foreach ($methods as $method) {
+                $this->assertSame($method !== $vetoed, (bool) $video->$method($member), "$method with $vetoed vetoed");
+            }
+        }
     }
 }
