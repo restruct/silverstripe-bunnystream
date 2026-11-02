@@ -1,14 +1,18 @@
 {
     "name": "restruct/silverstripe-bunnystream",
-    "description": "Bunny Stream video integration for Silverstripe: upload, manage and embed videos",
+    "description": "Upload videos from the Silverstripe CMS straight to Bunny Stream, manage them in the CMS and embed them with Bunny's player",
     "type": "silverstripe-vendormodule",
     "homepage": "https://github.com/restruct/silverstripe-bunnystream",
     "keywords": [
         "silverstripe",
-        "video",
-        "bunny",
+        "silverstripe-module",
+        "silverstripe-cms",
+        "bunny-net",
+        "bunny-stream",
         "bunnycdn",
-        "streaming"
+        "video",
+        "video-streaming",
+        "tus-upload"
     ],
     "license": "MIT",
     "authors": [
